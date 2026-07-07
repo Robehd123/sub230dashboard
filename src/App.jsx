@@ -1,34 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { ActivityCalendar } from "./Calendar.jsx";
 import { HealthCards } from "./HealthCards.jsx";
 import { FitnessCards } from "./FitnessCards.jsx";
 import { ActivityFeedbackCard } from "./ActivityFeedbackCard.jsx";
 import { AthleteNotes } from "./AthleteNotes.jsx";
 import { BodyCard } from "./BodyCard.jsx";
+import { BACKEND, ACTIVITY_COLOURS, WEEKLY_TARGET_KM } from "./config.js";
 
-const BACKEND = "https://sub230-backend.sub230.workers.dev";
-
-const TIER = {
-  easy:      "#FAE24A",  // yellow
-  long:      "#EC9649",  // orange
-  threshold: "#2DD4BF",  // teal
-  intervals: "#19E785",  // green
-  strength:  "#9D90FF",  // purple
-  swim:      "#59CEF1",  // blue
-  cycling:   "#F472B6",  // pink
-  rest:      "#1C1C1A",
-};
-const YELLOW = "#FFFF00";
-
-const WEEK_SCHEDULE = [
-  { d: "Mon", label: "Gym · legs",       type: "strength"  },
-  { d: "Tue", label: "Commute + track",  type: "intervals" },
-  { d: "Wed", label: "Commute",          type: "easy"      },
-  { d: "Thu", label: "Treadmill reps",   type: "intervals" },
-  { d: "Fri", label: "Commute",          type: "easy"      },
-  { d: "Sat", label: "Long run",         type: "long"      },
-  { d: "Sun", label: "Easy + swim",      type: "easy"      },
-];
+// ---- formatting helpers ----
 
 function fmtType(t) {
   return { easy: "Easy", long: "Long", threshold: "Threshold", intervals: "Intervals", strength: "Strength", swim: "Swim" }[t] || t;
@@ -53,6 +32,18 @@ function getTodayKey() {
   return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
 }
 
+// ---- week strip ----
+
+const WEEK_SCHEDULE = [
+  { d: "Mon", label: "Gym: legs",        type: "strength"  },
+  { d: "Tue", label: "Commute + track",  type: "intervals" },
+  { d: "Wed", label: "Commute",          type: "easy"      },
+  { d: "Thu", label: "Treadmill reps",   type: "intervals" },
+  { d: "Fri", label: "Commute",          type: "easy"      },
+  { d: "Sat", label: "Long run",         type: "long"      },
+  { d: "Sun", label: "Easy or swim",     type: "easy"      },
+];
+
 function buildWeekStrip(activities) {
   const todayKey = getTodayKey();
   const actsByDay = {};
@@ -69,7 +60,33 @@ function buildWeekStrip(activities) {
 }
 
 // map today to the plan session key
-const DAY_TO_PLAN = { Mon: "monday", Tue: "tuesday", Wed: "wednesday", Thu: "thursday", Fri: "friday", Sat: "saturday", Sun: "sunday" };
+const DAY_TO_PLAN = {
+  Mon: "monday", Tue: "tuesday", Wed: "wednesday",
+  Thu: "thursday", Fri: "friday", Sat: "saturday", Sun: "sunday",
+};
+
+// ---- helper: extract text from weekFocus or keyLever (handles both old string and new {summary,body} shape) ----
+function focusSummary(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val;
+  if (typeof val === "object" && val.summary) return String(val.summary);
+  return null;
+}
+function focusBody(val) {
+  if (!val) return null;
+  if (typeof val === "string") return null;
+  if (typeof val === "object" && val.body) return String(val.body);
+  return null;
+}
+// Safe string renderer: prevents React error #31 when an API field is unexpectedly an object
+function safeStr(val) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "string") return val;
+  if (typeof val === "object") return val.summary ? String(val.summary) : null;
+  return String(val);
+}
+
+// ---- dashboard ----
 
 export default function Dashboard() {
   const [liveData, setLiveData]         = useState(null);
@@ -78,8 +95,6 @@ export default function Dashboard() {
   const [nextWeekPlan, setNextWeekPlan] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
-  const [scrollY, setScrollY]           = useState(0);
-  const scrollRef                       = useRef(null);
 
   useEffect(() => {
     const todayNum = new Date().getDay();
@@ -89,7 +104,6 @@ export default function Dashboard() {
       fetch(`${BACKEND}/api/dashboard`).then(r => r.json()),
       fetch(`${BACKEND}/api/plan`).then(r => r.json()),
       fetch(`${BACKEND}/api/calendar?days=84`).then(r => r.json()).catch(() => ({})),
-      // on weekends, trigger next week plan generation in background
       isWeekend
         ? fetch(`${BACKEND}/api/plan?next=true`).then(r => r.json()).catch(() => null)
         : Promise.resolve(null),
@@ -97,29 +111,16 @@ export default function Dashboard() {
       setLiveData(dash);
       setPlan(planData);
       setCalendarData(cal);
-      // if weekend and next week plan available, store it
-      if (isWeekend && nextPlan && !nextPlan.error) {
-        setNextWeekPlan(nextPlan);
-      }
+      if (isWeekend && nextPlan && !nextPlan.error) setNextWeekPlan(nextPlan);
       setLoading(false);
     }).catch(() => { setError("Could not reach backend"); setLoading(false); });
   }, []);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const fn = () => setScrollY(el.scrollTop);
-    el.addEventListener("scroll", fn, { passive: true });
-    return () => el.removeEventListener("scroll", fn);
-  }, []);
-
-  const glowOpacity = Math.max(0, 1 - scrollY / 320);
-
   if (loading) return (
     <div style={{ ...S.root, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 36, fontWeight: 800, color: YELLOW, marginBottom: 12 }}>Sub230</div>
-        <div style={{ color: "#8A8A82", fontSize: 14 }}>Loading your plan…</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--disp)", marginBottom: 12 }}>Sub230</div>
+        <div style={{ color: "var(--ink-low)", fontSize: 14 }}>Loading your plan…</div>
       </div>
     </div>
   );
@@ -127,8 +128,8 @@ export default function Dashboard() {
   if (error) return (
     <div style={{ ...S.root, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center", padding: 24 }}>
-        <div style={{ color: TIER.long, fontSize: 14, marginBottom: 8 }}>Connection error</div>
-        <div style={{ color: "#8A8A82", fontSize: 12 }}>{error}</div>
+        <div style={{ color: "var(--warn)", fontSize: 14, marginBottom: 8 }}>Connection error</div>
+        <div style={{ color: "var(--ink-low)", fontSize: 12 }}>{error}</div>
       </div>
     </div>
   );
@@ -136,30 +137,34 @@ export default function Dashboard() {
   const { week, readiness, series, recentActivities } = liveData;
   const weekStrip  = buildWeekStrip(week?.activities);
   const completed  = week?.completed || 0;
-  const target     = week?.target || 104;
+  const target     = week?.target || WEEKLY_TARGET_KM;
   const pct        = Math.min(100, Math.round((completed / target) * 100));
   const remaining  = Math.max(0, target - completed).toFixed(1);
   const isDownWeek = week?.isDownWeek;
 
-  const readyMap = {
-    ready:  { dot: TIER.threshold, label: "Ready to go" },
-    steady: { dot: TIER.easy,      label: "Steady" },
-    hold:   { dot: TIER.long,      label: "Hold back today" },
-  };
-  const rd = readyMap[readiness?.state || "ready"];
+  // use the new unified status object when available, fall back to legacy readiness.state
+  const statusObj  = liveData?.status;
+  const legacyState = readiness?.state || "ready";
+  const statusWord  = statusObj?.word || { ready: "Ready", steady: "Caution", hold: "Hold" }[legacyState] || "Ready";
+  const statusColour = statusObj
+    ? { pos: "var(--pos)", warn: "var(--warn)", alert: "var(--alert)" }[statusObj.colour] || "var(--pos)"
+    : { Ready: "var(--pos)", Caution: "var(--warn)", Hold: "var(--alert)" }[statusWord] || "var(--pos)";
+  const statusDetail = statusObj?.detail || (readiness?.restHrDelta != null
+    ? `RHR ${readiness.restHrDelta >= 0 ? "+" : ""}${readiness.restHrDelta} bpm`
+    : "Health feed pending");
 
-  const todayKey   = getTodayKey();
-  const planKey    = DAY_TO_PLAN[todayKey];
+  const todayKey    = getTodayKey();
+  const planKey     = DAY_TO_PLAN[todayKey];
   const planSession = plan?.sessions?.[planKey];
   const commuteSession = {
     type: "easy", title: "Easy commute run",
-    detail: ["10 km easy pace", "Backpack load — treat as aerobic base"],
-    rationale: "Commute runs form the aerobic spine of your week. Easy pace with a loaded pack builds aerobic capacity without accumulating fatigue.",
+    summary: "Ten kilometres easy with the backpack.",
+    detail: ["10 km easy pace", "Backpack load, aerobic base only"],
+    rationale: "Commute runs form the aerobic spine of the week. Easy pace with a loaded pack builds aerobic capacity without accumulating meaningful fatigue.",
   };
   const session = planSession || commuteSession;
 
-  // map plan keys to day numbers (0=Sun, 1=Mon etc)
-  const planKeyToDayNum = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
+  const planKeyToDayNum = { monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6, sunday:0 };
   const todayNum = new Date().getDay();
   const isWeekend = todayNum === 0 || todayNum === 6;
 
@@ -169,23 +174,19 @@ export default function Dashboard() {
       if (k === planKey) return false;
       const keyDay = planKeyToDayNum[k];
       const todayInWeek = todayNum === 0 ? 7 : todayNum;
-      const keyInWeek = keyDay === 0 ? 7 : keyDay;
+      const keyInWeek   = keyDay  === 0 ? 7 : keyDay;
       if (keyInWeek <= todayInWeek) return false;
       return !!plan?.sessions?.[k];
     })
     .sort((a, b) => {
-      const da = planKeyToDayNum[a] === 0 ? 7 : planKeyToDayNum[a];
-      const db2 = planKeyToDayNum[b] === 0 ? 7 : planKeyToDayNum[b];
+      const da    = planKeyToDayNum[a] === 0 ? 7 : planKeyToDayNum[a];
+      const db2   = planKeyToDayNum[b] === 0 ? 7 : planKeyToDayNum[b];
       const today = todayNum === 0 ? 7 : todayNum;
-      return (da >= today ? da - today : da + 7 - today) - (db2 >= today ? db2 - today : db2 + 7 - today);
+      return (da  >= today ? da  - today : da  + 7 - today)
+           - (db2 >= today ? db2 - today : db2 + 7 - today);
     })
-    .map(k => ({
-      ...plan.sessions[k],
-      dayLabel: k.charAt(0).toUpperCase() + k.slice(1),
-      weekLabel: null,
-    }));
+    .map(k => ({ ...plan.sessions[k], dayLabel: k.charAt(0).toUpperCase() + k.slice(1), weekLabel: null }));
 
-  // on weekends, add next week's key sessions to Coming Up
   const nwp = nextWeekPlan || liveData?.nextWeekPlan;
   const nextWeekUpcoming = (isWeekend && nwp?.sessions)
     ? ["monday","tuesday","thursday"].reduce((acc, k) => {
@@ -195,7 +196,6 @@ export default function Dashboard() {
     : [];
 
   const upcoming = [...thisWeekUpcoming, ...nextWeekUpcoming].slice(0, 5);
-
   const progress = plan?.sub230Progress;
 
   return (
@@ -210,31 +210,25 @@ export default function Dashboard() {
         }
         @media (max-width: 767px) {
           .dash-columns { display: block; }
-          .dash-fullwidth {}
         }
       `}</style>
 
       <div className="dash-root" style={S.root}>
-        <div style={{ ...S.glow, opacity: glowOpacity }} aria-hidden="true" />
-        <div style={{ ...S.glowTop, opacity: glowOpacity }} aria-hidden="true" />
-        {/* desktop: wide glow */}
-        <div style={{ ...S.glowWide, opacity: glowOpacity }} aria-hidden="true" />
-
-        <div className="dash-scroll" ref={scrollRef} style={S.scroll}>
+        <div className="dash-scroll" style={S.scroll}>
 
           {/* header */}
           <div style={S.header}>
-            <span style={S.brand}>Sub230</span>
+            <span style={S.brand}>Sub<span style={{ color: "var(--accent)" }}>230</span></span>
             <span style={S.phasePill}>
               {plan?.phase ? plan.phase.charAt(0).toUpperCase() + plan.phase.slice(1) + " phase" : "Aerobic base"} · 2026
             </span>
           </div>
 
-          {/* two-column grid on desktop */}
           <div className="dash-columns">
 
-            {/* ---- LEFT COLUMN ---- */}
+            {/* ---- LEFT ---- */}
             <div>
+
               {/* hero */}
               <div style={S.heroWrap}>
                 <div style={S.eyebrow}>THIS WEEK</div>
@@ -244,20 +238,17 @@ export default function Dashboard() {
                 </div>
                 <div style={S.heroSub}>
                   {isDownWeek
-                    ? <span><span style={{ color: TIER.long }}>Down week</span> · {remaining} km to planned target</span>
+                    ? <span><span style={{ color: "var(--warn)" }}>Down week</span> · {remaining} km to planned target</span>
                     : <span>{remaining} km remaining · {pct}% complete</span>
                   }
                 </div>
                 <div style={S.barTrack}>
-                  <div style={{ ...S.barFill, width: `${pct}%`, background: isDownWeek ? TIER.long : YELLOW }} />
+                  <div style={{ ...S.barFill, width: `${pct}%`, background: isDownWeek ? "var(--warn)" : "var(--accent)" }} />
                 </div>
-                <div style={S.readyPill}>
-                  <span style={{ ...S.readyDot, background: rd.dot }} />
-                  <span style={S.readyLabel}>{rd.label}</span>
-                  {readiness?.restHrDelta != null
-                    ? <span style={S.readyDelta}>RHR {readiness.restHrDelta >= 0 ? "+" : ""}{readiness.restHrDelta} bpm</span>
-                    : <span style={S.readyDelta}>Health feed pending</span>
-                  }
+                <div style={{ ...S.readyPill, borderColor: `${statusColour}55` }}>
+                  <span style={{ ...S.readyDot, background: statusColour }} />
+                  <span style={S.readyLabel}>{statusWord}</span>
+                  <span style={S.readyDelta}>{statusDetail}</span>
                 </div>
               </div>
 
@@ -267,10 +258,10 @@ export default function Dashboard() {
                   <div key={x.d} style={S.stripCol}>
                     <div style={{
                       ...S.stripDot,
-                      background: x.done ? TIER[x.type] : "transparent",
-                      border: x.done ? "none" : `1.5px solid ${x.today ? YELLOW : "#2A2A27"}`,
+                      background: x.done ? ACTIVITY_COLOURS[x.type] : "transparent",
+                      border: x.done ? "none" : `1.5px solid ${x.today ? "var(--accent)" : "var(--line)"}`,
                     }} />
-                    <span style={{ ...S.stripDay, color: x.today ? YELLOW : "#7A7A72" }}>{x.d}</span>
+                    <span style={{ ...S.stripDay, color: x.today ? "var(--accent)" : "var(--ink-low)" }}>{x.d}</span>
                     {x.done && x.km > 0 && <span style={S.stripKm}>{x.km.toFixed(0)}km</span>}
                   </div>
                 ))}
@@ -280,15 +271,18 @@ export default function Dashboard() {
               {plan?.weekFocus && (
                 <div style={S.focusBanner}>
                   <span style={S.focusLabel}>WEEK FOCUS</span>
-                  <p style={S.focusText}>{plan.weekFocus}</p>
+                  <p style={S.focusText}>{focusSummary(plan.weekFocus)}</p>
+                  {focusBody(plan.weekFocus) && (
+                    <p style={{ ...S.focusText, marginTop: 6, color: "var(--ink-low)" }}>{focusBody(plan.weekFocus)}</p>
+                  )}
                 </div>
               )}
 
-              {/* today */}
+              {/* today session */}
               <div style={S.sectionLabel}>TODAY · {todayKey.toUpperCase()}</div>
-              <div style={{ ...S.card, borderColor: "#1E1E1B" }}>
+              <div style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={{ ...S.typeTag, background: TIER[session.type] || TIER.easy, color: "#111" }}>
+                  <span style={{ ...S.typeTag, background: ACTIVITY_COLOURS[session.type] || ACTIVITY_COLOURS.easy, color: "var(--ground-0)" }}>
                     {fmtType(session.type)}
                   </span>
                 </div>
@@ -299,40 +293,41 @@ export default function Dashboard() {
                     <span style={S.bulletText}>{d}</span>
                   </div>
                 ))}
-                {session.rationale && (
+                {(session.summary || session.rationale) && (
                   <div style={S.why}>
-                    <span style={S.whyLabel}>WHY THIS SESSION</span>
-                    <p style={S.whyText}>{session.rationale}</p>
+                    <span style={S.whyLabel}>WHY</span>
+                    {session.summary && <p style={S.whySummary}>{session.summary}</p>}
+                    {session.rationale && <p style={S.whyText}>{session.rationale}</p>}
                   </div>
                 )}
               </div>
 
-              {/* athlete conditioning notes */}
+              {/* journal */}
               <AthleteNotes latestNote={liveData?.latestNote} />
             </div>
 
-            {/* ---- RIGHT COLUMN ---- */}
+            {/* ---- RIGHT ---- */}
             <div>
-              {/* upcoming */}
+
+              {/* coming up */}
               {upcoming.length > 0 && (
                 <>
                   <div style={S.sectionLabel}>COMING UP</div>
                   {upcoming.map((u, i) => (
                     <div key={i} style={S.card}>
                       <div style={S.upHead}>
-                        <span style={{ ...S.typeDot, background: TIER[u.type] || TIER.easy }} />
+                        <span style={{ ...S.typeDot, background: ACTIVITY_COLOURS[u.type] || ACTIVITY_COLOURS.easy }} />
                         <span style={S.upDay}>{u.dayLabel}</span>
-                        {u.weekLabel && <span style={{ fontSize: 10, color: YELLOW, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{u.weekLabel}</span>}
-                        {u.recommendedDay && <span style={S.upFocus}>{u.recommendedDay}</span>}
+                        {u.weekLabel && <span style={{ fontSize: 10, color: "var(--accent)", opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{u.weekLabel}</span>}
                       </div>
                       <div style={S.upTitle}>{u.title}</div>
+                      {u.summary && <p style={S.upSummary}>{u.summary}</p>}
                       {(u.detail || []).slice(0, 2).map((d, j) => (
                         <div key={j} style={S.bulletRow}>
                           <span style={S.bullet}>▸</span>
                           <span style={S.bulletText}>{d}</span>
                         </div>
                       ))}
-                      {u.rationale && <p style={S.upRationale}>{u.rationale}</p>}
                     </div>
                   ))}
                 </>
@@ -349,22 +344,25 @@ export default function Dashboard() {
                   <div style={S.card}>
                     <div style={S.progressRow}>
                       <div style={S.progressStat}>
-                        <div style={S.progressNum}>{progress.currentEquivalent}</div>
+                        <div style={S.progressNum}>{safeStr(progress.currentEquivalent)}</div>
                         <div style={S.progressLabel}>Current equivalent</div>
                       </div>
                       <div style={S.progressDivider} />
                       <div style={S.progressStat}>
-                        <div style={{ ...S.progressNum, color: progress.onTrack ? TIER.threshold : TIER.long }}>
+                        <div style={{ ...S.progressNum, color: progress.onTrack ? "var(--pos)" : "var(--warn)" }}>
                           {progress.onTrack ? "On track" : "Off track"}
                         </div>
                         <div style={S.progressLabel}>vs sub-2:30 target</div>
                       </div>
                     </div>
-                    {plan?.progressNote && <p style={S.whyText}>{plan.progressNote}</p>}
+                    {safeStr(plan?.progressNote) && <p style={S.whyText}>{safeStr(plan.progressNote)}</p>}
                     {progress.keyLever && (
                       <div style={S.keyLever}>
                         <span style={S.whyLabel}>KEY LEVER</span>
-                        <p style={{ ...S.whyText, color: YELLOW, opacity: 0.9 }}>{progress.keyLever}</p>
+                        <p style={{ ...S.whySummary, color: "var(--accent)" }}>{focusSummary(progress.keyLever)}</p>
+                        {focusBody(progress.keyLever) && (
+                          <p style={{ ...S.whyText, marginTop: 6 }}>{focusBody(progress.keyLever)}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -377,7 +375,7 @@ export default function Dashboard() {
                 <ActivityFeedbackCard
                   key={i}
                   activity={a}
-                  typeColour={TIER[a.type] || TIER.easy}
+                  typeColour={ACTIVITY_COLOURS[a.type] || ACTIVITY_COLOURS.easy}
                   fmtDist={fmtDist}
                   fmtTime={fmtTime}
                   fmtPace={fmtPace}
@@ -387,166 +385,177 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ---- FULL WIDTH BELOW COLUMNS ---- */}
+          {/* ---- FULL WIDTH ---- */}
           <div className="dash-fullwidth">
 
-            {/* volume chart */}
             <div style={S.sectionLabel}>VOLUME · LAST 8 WEEKS</div>
             <div style={S.card}>
               <VolumeChart series={series} />
               <div style={S.legendRow}>
-                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: YELLOW }} /> Build week</span>
-                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: TIER.long }} /> Down week</span>
-                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "rgba(255,255,0,0.25)", border: "1px dashed rgba(255,255,0,0.4)" }} /> Target</span>
+                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "var(--run)" }} /> Build week</span>
+                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "var(--warn)" }} /> Down week</span>
+                <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "rgba(245,185,21,0.2)", border: "1px dashed rgba(245,185,21,0.4)" }} /> Target</span>
               </div>
             </div>
 
-            {/* health cards */}
             <div style={S.sectionLabel}>HEALTH · TODAY</div>
             <HealthCards
               metrics={{
-                resting_hr: readiness?.restingHr,
-                sleep_score: readiness?.sleepScore,
+                resting_hr:        readiness?.restingHr,
+                sleep_score:       readiness?.sleepScore,
                 sleep_duration_min: readiness?.sleepDuration,
-                steps: readiness?.steps,
-                respiratory_rate: readiness?.respiratoryRate,
-                weight_kg: liveData?.body?.weight_kg || null,
+                steps:             readiness?.steps,
+                respiratory_rate:  readiness?.respiratoryRate,
+                weight_kg:         liveData?.body?.weight_kg || null,
               }}
               hrBaseline={readiness?.hrBaseline}
             />
 
-            {/* body composition */}
             <BodyCard body={liveData?.body} />
 
-            {/* activity calendar */}
             <div style={{ ...S.sectionLabel, marginTop: 20 }}>ACTIVITY · LAST 12 WEEKS</div>
             <div style={{ ...S.card, paddingLeft: 28 }}>
-              <ActivityCalendar calendarData={calendarData} streak={liveData?.streak} weekMinutes={liveData?.weekMinutes} />
+              <ActivityCalendar
+                calendarData={calendarData}
+                streak={liveData?.streak}
+                weekMinutes={liveData?.weekMinutes}
+                activeWeeks={liveData?.activeWeeks}
+              />
             </div>
 
-            {/* goal */}
             <div style={S.sectionLabel}>GOAL</div>
             <div style={S.card}>
               <div style={S.raceNum}>Sub 2:30</div>
               <div style={S.cardDetail}>Target window · late 2027</div>
-              <p style={S.whyText}>No fixed date yet. The plan locks to a precise countdown once you choose a race.</p>
+              <p style={S.whyText}>No fixed date yet. The plan locks to a precise countdown once a race is chosen.</p>
             </div>
 
             <div style={S.footer}>
               Live data · last sync {new Date(liveData.lastSync).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
-
         </div>
       </div>
     </div>
   );
 }
 
+// ---- volume chart (bars, not line) ----
+
 function VolumeChart({ series }) {
   if (!series?.actual?.length) return null;
-  const W = 320, H = 160, padL = 32, padR = 20, padT = 12, padB = 24;
-  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const W = 320, H = 160, padL = 32, padR = 12, padT = 16, padB = 24;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n       = series.weeks.length;
   const actuals = series.actual.filter(v => v != null && v > 0);
-  const maxVal = Math.max(...(series.target || []), ...actuals, 20) * 1.15;
-  const n = series.weeks.length;
-  const xPos = i => padL + (i / (n - 1)) * chartW;
-  const yPos = v => padT + chartH * (1 - v / maxVal);
+  const maxVal  = Math.max(...(series.target || []), ...actuals, 20) * 1.15;
+  const barW    = (chartW / n) * 0.6;
+  const gap     = (chartW / n) * 0.4;
+  const xLeft   = i => padL + i * (chartW / n) + gap / 2;
+  const yPos    = v => padT + chartH * (1 - v / maxVal);
+  const tgtY    = series.target?.[0] ? yPos(series.target[0]) : null;
+  const gridStep = maxVal > 100 ? 40 : 20;
   const gridVals = [];
-  const step = maxVal > 100 ? 40 : 20;
-  for (let v = 0; v <= maxVal; v += step) gridVals.push(v);
-  const points = series.weeks.map((_, i) => ({ x: xPos(i), y: series.actual[i] != null ? yPos(series.actual[i]) : null, act: series.actual[i], isDown: series.down?.[i], wk: series.weeks[i] }));
-  const lineParts = [];
-  let seg = [];
-  for (const p of points) {
-    if (p.act != null && p.act > 0) { seg.push(p); }
-    else { if (seg.length) lineParts.push(seg); seg = []; }
-  }
-  if (seg.length) lineParts.push(seg);
-  const pathD = s => s.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const tgtY = series.target?.[0] ? yPos(series.target[0]) : null;
+  for (let v = 0; v <= maxVal; v += gridStep) gridVals.push(v);
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }} role="img" aria-label="Weekly running volume">
       {gridVals.map(v => (
         <g key={v}>
-          <line x1={padL} y1={yPos(v)} x2={W - padR} y2={yPos(v)} stroke="#1E1E1C" strokeWidth="1" />
-          <text x={padL - 4} y={yPos(v) + 3.5} textAnchor="end" fontSize="8" fill="#5A5A55" fontFamily="system-ui">{v}</text>
+          <line x1={padL} y1={yPos(v)} x2={W - padR} y2={yPos(v)} stroke="var(--line)" strokeWidth="1" />
+          <text x={padL - 4} y={yPos(v) + 3.5} textAnchor="end" fontSize="8" fill="var(--ink-low)" fontFamily="var(--mono)">{v}</text>
         </g>
       ))}
-      {tgtY && <line x1={padL} y1={tgtY} x2={W - padR} y2={tgtY} stroke="#FFFF00" strokeWidth="1" strokeDasharray="4 3" opacity="0.25" />}
-      {lineParts.map((s, si) => s.length > 1 && (
-        <path key={si} d={[...s.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`), `L ${s[s.length-1].x} ${padT+chartH}`, `L ${s[0].x} ${padT+chartH}`, "Z"].join(" ")} fill="rgba(255,255,0,0.04)" />
+      {tgtY && (
+        <>
+          <line x1={padL} y1={tgtY} x2={W - padR} y2={tgtY} stroke="var(--accent)" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+          <text x={W - padR} y={tgtY - 3} textAnchor="end" fontSize="8" fill="var(--accent)" fontFamily="var(--mono)" opacity="0.7">TGT</text>
+        </>
+      )}
+      {series.weeks.map((wk, i) => {
+        const val = series.actual[i];
+        if (!val || val <= 0) return null;
+        const barH  = chartH * (val / maxVal);
+        const isDown = series.down?.[i];
+        return (
+          <rect
+            key={i}
+            x={xLeft(i)} y={yPos(val)}
+            width={barW} height={barH}
+            rx="3"
+            fill={isDown ? "var(--warn)" : "var(--run)"}
+            opacity="0.85"
+          />
+        );
+      })}
+      {series.weeks.map((wk, i) => (
+        <text key={i} x={xLeft(i) + barW / 2} y={H - 6} textAnchor="middle" fontSize="7.5" fill="var(--ink-low)" fontFamily="var(--mono)">{wk}</text>
       ))}
-      {lineParts.map((s, si) => <path key={si} d={pathD(s)} fill="none" stroke={YELLOW} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />)}
-      {points.map((p, i) => p.act != null && p.act > 0 ? <circle key={i} cx={p.x} cy={p.y} r="3" fill={p.isDown ? TIER.long : YELLOW} stroke="#070707" strokeWidth="1.5" /> : null)}
-      {points.map((p, i) => <text key={i} x={p.x} y={H - 6} textAnchor="middle" fontSize="8" fill="#5A5A55" fontFamily="system-ui">{p.wk}</text>)}
     </svg>
   );
 }
 
+// ---- styles ----
+
 const S = {
-  pageWrap: { minHeight: "100vh", background: "#030303", display: "flex", alignItems: "flex-start", justifyContent: "center" },
-  root: { position: "relative", width: "100%", maxWidth: 420, margin: "0 auto", minHeight: "100vh", background: "#070707", fontFamily: "system-ui, -apple-system, sans-serif", color: "#fff", overflow: "hidden" },
-  glowWide: { position: "absolute", left: "50%", top: "20%", transform: "translate(-50%,-50%)", width: "120%", height: 500, background: "radial-gradient(ellipse, rgba(255,255,0,0.18) 0%, rgba(255,221,0,0.06) 40%, rgba(0,0,0,0) 70%)", filter: "blur(24px)", pointerEvents: "none", transition: "opacity 0.15s linear", zIndex: 0, display: "none" },
-  glow: { position: "absolute", left: "50%", top: "55%", transform: "translate(-50%,-50%)", width: 460, height: 460, background: "radial-gradient(circle, rgba(255,255,0,0.40) 0%, rgba(255,221,0,0.14) 38%, rgba(0,0,0,0) 70%)", filter: "blur(18px)", pointerEvents: "none", transition: "opacity 0.15s linear", zIndex: 0 },
-  glowTop: { position: "absolute", left: "8%", top: "4%", width: 220, height: 220, background: "radial-gradient(circle, rgba(255,255,0,0.16) 0%, rgba(0,0,0,0) 70%)", filter: "blur(14px)", pointerEvents: "none", transition: "opacity 0.15s linear", zIndex: 0 },
-  scroll: { position: "relative", zIndex: 1, height: "100%", overflowY: "auto", padding: "20px 18px 0", boxSizing: "border-box" },
+  pageWrap: { minHeight: "100dvh", background: "var(--ground-0)", display: "flex", alignItems: "flex-start", justifyContent: "center" },
+  root: {
+    position: "relative", width: "100%", maxWidth: 420, margin: "0 auto",
+    minHeight: "100dvh", background: "var(--ground-0)",
+    fontFamily: "var(--body)", color: "var(--ink-hi)", overflow: "hidden",
+  },
+  scroll: { position: "relative", zIndex: 1, padding: "20px 18px 0", boxSizing: "border-box" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 },
-  brand: { fontWeight: 800, fontSize: 18, letterSpacing: 2, color: "#fff" },
-  phasePill: { fontSize: 12, color: "#9A9A92", background: "#121210", padding: "5px 11px", borderRadius: 12 },
+  brand: { fontWeight: 800, fontSize: 18, letterSpacing: 2, fontFamily: "var(--disp)", color: "var(--ink-hi)" },
+  phasePill: { fontSize: 11, color: "var(--ink-mid)", background: "var(--ground-1)", padding: "5px 11px", borderRadius: 12, fontFamily: "var(--mono)", letterSpacing: "0.1em" },
   heroWrap: { marginBottom: 22 },
-  eyebrow: { fontSize: 12, letterSpacing: 1.6, color: "#8A8A82", marginBottom: 6 },
+  eyebrow: { fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.18em", color: "var(--ink-low)", marginBottom: 6 },
   heroRow: { display: "flex", alignItems: "baseline", gap: 10 },
-  heroNum: { fontSize: 84, fontWeight: 800, lineHeight: 0.9, letterSpacing: -3, color: "#fff" },
-  heroUnit: { fontSize: 26, fontWeight: 700, color: YELLOW },
-  heroSub: { fontSize: 14, color: "#A8A8A0", marginTop: 10 },
-  barTrack: { height: 6, background: "#1C1C1A", borderRadius: 3, marginTop: 14, overflow: "hidden" },
+  heroNum: { fontSize: 84, fontWeight: 800, lineHeight: 0.9, letterSpacing: -3, color: "var(--ink-hi)", fontFamily: "var(--disp)" },
+  heroUnit: { fontSize: 26, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--disp)" },
+  heroSub: { fontSize: 13, color: "var(--ink-mid)", marginTop: 10, fontFamily: "var(--mono)" },
+  barTrack: { height: 5, background: "var(--ground-2)", borderRadius: 3, marginTop: 14, overflow: "hidden" },
   barFill: { height: "100%", borderRadius: 3, transition: "width 0.4s ease" },
-  readyPill: { display: "inline-flex", alignItems: "center", gap: 9, marginTop: 16, padding: "8px 13px", background: "#101006", border: "1px solid rgba(255,255,0,0.35)", borderRadius: 16 },
-  readyDot: { width: 9, height: 9, borderRadius: "50%" },
-  readyLabel: { fontSize: 14, fontWeight: 500 },
-  readyDelta: { fontSize: 12, color: "#8A8A82", marginLeft: 4 },
+  readyPill: { display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14, padding: "8px 12px", background: "var(--ground-1)", border: "1px solid", borderRadius: 99 },
+  readyDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
+  readyLabel: { fontSize: 13, fontWeight: 600, color: "var(--ink-hi)" },
+  readyDelta: { fontSize: 11, color: "var(--ink-low)", fontFamily: "var(--mono)" },
   strip: { display: "flex", justifyContent: "space-between", margin: "8px 0 20px" },
   stripCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1 },
-  stripDot: { width: 14, height: 14, borderRadius: "50%" },
-  stripDay: { fontSize: 11, fontWeight: 500 },
-  stripKm: { fontSize: 10, color: "#6A6A63" },
-  focusBanner: { background: "#0D0D0A", border: "1px solid #1E1E14", borderRadius: 12, padding: "12px 14px", marginBottom: 16 },
-  focusLabel: { fontSize: 10, letterSpacing: 1.4, color: YELLOW, opacity: 0.7 },
-  focusText: { fontSize: 13, color: "#B0B0A8", margin: "6px 0 0", lineHeight: 1.5 },
-  sectionLabel: { fontSize: 12, letterSpacing: 1.6, color: "#8A8A82", margin: "8px 2px 12px" },
-  card: { background: "#0C0C0B", border: "1px solid #161614", borderRadius: 16, padding: "16px 18px", marginBottom: 14, textAlign: "left" },
+  stripDot: { width: 22, height: 22, borderRadius: 7 },
+  stripDay: { fontSize: 10, fontWeight: 500, fontFamily: "var(--mono)", letterSpacing: "0.08em" },
+  stripKm: { fontSize: 9, color: "var(--ink-low)", fontFamily: "var(--mono)" },
+  focusBanner: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 16 },
+  focusLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase" },
+  focusText: { fontSize: 13, color: "var(--ink-mid)", margin: "5px 0 0", lineHeight: 1.55 },
+  sectionLabel: { fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.2em", color: "var(--ink-low)", textTransform: "uppercase", margin: "8px 2px 12px" },
+  card: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "16px 18px", marginBottom: 14, textAlign: "left" },
   cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  typeTag: { fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 },
-  cardTitle: { fontSize: 22, fontWeight: 700, marginBottom: 10, textAlign: "left" },
+  typeTag: { fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500, padding: "4px 10px", borderRadius: "var(--r-s)", letterSpacing: "0.14em", textTransform: "uppercase" },
+  cardTitle: { fontSize: 20, fontWeight: 700, marginBottom: 10, color: "var(--ink-hi)" },
+  cardDetail: { fontSize: 13, color: "var(--ink-low)", fontFamily: "var(--mono)", marginBottom: 6 },
   bulletRow: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 },
-  bullet: { color: YELLOW, fontSize: 11, marginTop: 3, flexShrink: 0, opacity: 0.85 },
-  bulletText: { fontSize: 14, color: "#C2C2BA", lineHeight: 1.45, flex: 1, textAlign: "left" },
-  why: { marginTop: 14, paddingTop: 14, borderTop: "1px solid #161614" },
-  whyLabel: { fontSize: 11, letterSpacing: 1.4, color: YELLOW, opacity: 0.85 },
-  whyText: { fontSize: 14, lineHeight: 1.55, color: "#9E9E96", margin: "8px 0 0" },
-  upHead: { display: "flex", alignItems: "center", gap: 9, marginBottom: 8 },
+  bullet: { color: "var(--accent)", fontSize: 10, marginTop: 4, flexShrink: 0, opacity: 0.8 },
+  bulletText: { fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-mid)", lineHeight: 1.55, flex: 1, letterSpacing: "0.02em" },
+  why: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" },
+  whyLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase" },
+  whySummary: { fontSize: 13, color: "var(--ink-mid)", margin: "5px 0 0", lineHeight: 1.45 },
+  whyText: { fontSize: 13, lineHeight: 1.6, color: "var(--ink-low)", margin: "6px 0 0" },
+  upHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
   typeDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
-  upDay: { fontSize: 13, fontWeight: 600 },
-  upFocus: { fontSize: 12, color: "#7A7A72", marginLeft: "auto" },
-  upTitle: { fontSize: 17, fontWeight: 600, marginBottom: 6 },
-  upDetail: { fontSize: 13, color: "#C2C2BA", marginBottom: 3 },
-  upRationale: { fontSize: 13, lineHeight: 1.5, color: "#8E8E86", margin: "8px 0 0" },
+  upDay: { fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 500, letterSpacing: "0.1em", color: "var(--ink-mid)", textTransform: "uppercase" },
+  upTitle: { fontSize: 16, fontWeight: 650, marginBottom: 6, color: "var(--ink-hi)" },
+  upSummary: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 8, lineHeight: 1.45 },
   progressRow: { display: "flex", alignItems: "center", gap: 16, marginBottom: 14 },
   progressStat: { flex: 1, textAlign: "center" },
-  progressNum: { fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: -0.5 },
-  progressLabel: { fontSize: 11, color: "#6A6A63", marginTop: 4 },
-  progressDivider: { width: 1, height: 40, background: "#1E1E1C" },
-  keyLever: { marginTop: 14, paddingTop: 14, borderTop: "1px solid #161614" },
-  actHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  actName: { fontSize: 14, fontWeight: 600, flex: 1 },
-  actDate: { fontSize: 11, color: "#6A6A63" },
-  actStats: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" },
-  actStat: { fontSize: 13, color: "#C2C2BA" },
-  actStatSep: { fontSize: 11, color: "#444" },
-  legendRow: { display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" },
-  legendItem: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "#8A8A82" },
-  legendSwatch: { width: 10, height: 10, borderRadius: 2 },
-  raceNum: { fontSize: 38, fontWeight: 800, color: "#fff", marginBottom: 8 },
-  footer: { textAlign: "center", fontSize: 11, color: "#4A4A45", padding: "20px 0 28px" },
+  progressNum: { fontFamily: "var(--disp)", fontSize: 28, fontWeight: 800, color: "var(--ink-hi)", letterSpacing: 0 },
+  progressLabel: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", marginTop: 4, letterSpacing: "0.1em" },
+  progressDivider: { width: 1, height: 40, background: "var(--line)" },
+  keyLever: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" },
+  legendRow: { display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" },
+  legendItem: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", letterSpacing: "0.08em" },
+  legendSwatch: { width: 9, height: 9, borderRadius: 2, flexShrink: 0 },
+  raceNum: { fontFamily: "var(--disp)", fontSize: 38, fontWeight: 800, color: "var(--ink-hi)", marginBottom: 8 },
+  footer: { fontFamily: "var(--mono)", textAlign: "center", fontSize: 10, color: "var(--ink-low)", padding: "20px 0 28px", letterSpacing: "0.1em" },
 };

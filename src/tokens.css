@@ -1,0 +1,48 @@
+/* Sub230 · Sodium design tokens */
+
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders:opsz,wght@10..72,700;10..72,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ground */
+  --ground-0: #0B0A08;
+  --ground-1: #14120E;
+  --ground-2: #1D1A14;
+  --line:     #2A261D;
+
+  /* ink */
+  --ink-hi:  #F2EFE7;
+  --ink-mid: #B9B3A4;
+  --ink-low: #7A745F;
+
+  /* accent and status */
+  --accent: #F5B915;
+  --pos:    #7ED17F;
+  --warn:   #E8A04C;
+  --alert:  #E86A5E;
+
+  /* activity hues — used only in lane rails, day strip, heatmap */
+  --run:  #E8D44D;
+  --long: #E8955E;
+  --int:  #5ECFA0;
+  --gym:  #9D8CF0;
+  --swim: #5EB8E8;
+
+  /* typography */
+  --disp: 'Big Shoulders', 'Arial Narrow', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* shape */
+  --r:   14px;
+  --r-s:  8px;
+
+  /* spacing scale */
+  --sp-1:  8px;
+  --sp-2: 12px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 40px;
+}
+
+/* global numeric rendering */
+* { font-variant-numeric: tabular-nums; }
