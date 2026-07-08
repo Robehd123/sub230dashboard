@@ -72,6 +72,7 @@ wrap: {
     borderRadius: "var(--r)",
     padding: "14px 18px",
     marginBottom: 10,
+    marginTop: 10,
   },
   header: {
     display: "flex",
