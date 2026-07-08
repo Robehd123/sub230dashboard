@@ -4,7 +4,6 @@ import { HealthCards } from "./HealthCards.jsx";
 import { FitnessCards } from "./FitnessCards.jsx";
 import { ActivityFeedbackCard } from "./ActivityFeedbackCard.jsx";
 import { AthleteNotes } from "./AthleteNotes.jsx";
-import { BodyCard } from "./BodyCard.jsx";
 import { BACKEND, ACTIVITY_COLOURS, WEEKLY_TARGET_KM } from "./config.js";
 
 function fmtType(t) {
@@ -457,8 +456,6 @@ const dayKeys = ["sunday","monday","tuesday","wednesday","thursday","friday","sa
               hrBaseline={readiness?.hrBaseline}
               body={liveData?.body}
             />
-
-            <BodyCard body={liveData?.body} />
 
             <div style={{ ...S.sectionLabel, marginTop: 20 }}>ACTIVITY · LAST 12 WEEKS</div>
             <div style={{ ...S.card, paddingLeft: 28 }}>

@@ -108,6 +108,12 @@ const weight = body?.weight_kg || metrics?.weight_kg || null;
   const weightPct = weight ? Math.min(1, Math.max(0, 1 - (weight - 55) / 30)) : 0;
   const weightColour = "#59CEF1";
 
+  const bodyFat = body?.body_fat_pct || null;
+  const leanMass = body?.lean_mass_kg || null;
+  const bodyDate = body?.date
+    ? new Date(body.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+    : null;
+
   return (
     <div style={HC.grid}>
       <MiniCard
@@ -130,24 +136,34 @@ const weight = body?.weight_kg || metrics?.weight_kg || null;
         pending={pending && !steps}
       />
       <MiniCard
-        title="Weight"
-        icon="⊕"
-        gauge={{ pct: weightPct, colour: weightColour, size: 76, label: weight ? `${weight.toFixed(1)}` : "—" }}
-        bigNum={weight ? weight.toFixed(1) : "—"}
+        title="Body Fat"
+        icon="◈"
+        gauge={{ pct: bodyFat ? Math.min(1, bodyFat / 25) : 0, colour: bodyFat < 10 ? "var(--pos)" : bodyFat < 16 ? "var(--accent)" : "var(--warn)", size: 76, label: bodyFat ? `${bodyFat.toFixed(1)}%` : "—" }}
+        bigNum={bodyFat ? `${bodyFat.toFixed(1)}` : "—"}
+        bigUnit="%"
+        sub={bodyDate ? `InBody ${bodyDate}` : "No scan data"}
+        status="neutral"
+        pending={!bodyFat}
+      />
+      <MiniCard
+        title="Lean Mass"
+        icon="◉"
+        gauge={{ pct: leanMass ? Math.min(1, (leanMass - 50) / 20) : 0, colour: "var(--swim)", size: 76, label: leanMass ? `${leanMass.toFixed(1)}` : "—" }}
+        bigNum={leanMass ? leanMass.toFixed(1) : "—"}
         bigUnit="kg"
-        sub="InBody scan"
-        status={weightStatus}
-        pending={!weight}
+        sub={bodyDate ? `InBody ${bodyDate}` : "No scan data"}
+        status="neutral"
+        pending={!leanMass}
       />
     </div>
   );
 }
 
 const HC = {
-  grid: {
+grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 10,
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: 8,
   },
 card: {
     background: "var(--ground-1)",
