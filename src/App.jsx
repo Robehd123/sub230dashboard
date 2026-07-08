@@ -77,9 +77,9 @@ function safeStr(val) {
 }
 
 const TABS = [
-  { id: "today",    glyph: "05:45", label: "Today"    },
-  { id: "plan",     glyph: "WK",    label: "Plan"     },
-  { id: "progress", glyph: "2:30",  label: "Progress" },
+  { id: "today",    label: "Today"    },
+  { id: "plan",     label: "Plan"     },
+  { id: "progress", label: "Progress" },
 ];
 
 export default function Dashboard() {
@@ -279,6 +279,18 @@ export default function Dashboard() {
             </div>
 
             <AthleteNotes latestNote={liveData?.latestNote} />
+            <div style={S.sectionLabel}>RECENT RUNS</div>
+            {(recentActivities || []).slice(0, 4).map((a, i) => (
+              <ActivityFeedbackCard
+                key={i}
+                activity={a}
+                typeColour={ACTIVITY_COLOURS[a.type] || ACTIVITY_COLOURS.easy}
+                fmtDist={fmtDist}
+                fmtTime={fmtTime}
+                fmtPace={fmtPace}
+                recentFeedback={liveData?.recentFeedback}
+              />
+            ))}
 
             {(() => {
               const tomorrowKeys = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
@@ -448,19 +460,6 @@ export default function Dashboard() {
 
             <BodyCard body={liveData?.body} />
 
-            <div style={S.sectionLabel}>RECENT RUNS</div>
-            {(recentActivities || []).slice(0, 4).map((a, i) => (
-              <ActivityFeedbackCard
-                key={i}
-                activity={a}
-                typeColour={ACTIVITY_COLOURS[a.type] || ACTIVITY_COLOURS.easy}
-                fmtDist={fmtDist}
-                fmtTime={fmtTime}
-                fmtPace={fmtPace}
-                recentFeedback={liveData?.recentFeedback}
-              />
-            ))}
-
             <div style={{ ...S.sectionLabel, marginTop: 20 }}>ACTIVITY · LAST 12 WEEKS</div>
             <div style={{ ...S.card, paddingLeft: 28 }}>
               <ActivityCalendar
@@ -490,7 +489,6 @@ export default function Dashboard() {
             onClick={() => switchTab(t.id)}
             aria-current={activeTab === t.id ? "page" : undefined}
           >
-            <span style={{ ...S.tabGlyph, fontFamily: "var(--disp)", fontWeight: 700, fontSize: 16 }}>{t.glyph}</span>
             <span style={S.tabLabel}>{t.label}</span>
           </button>
         ))}
