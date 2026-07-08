@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0B0A08"/>
+  <text x="256" y="320" text-anchor="middle"
+    font-family="'Arial Narrow','Arial',sans-serif"
+    font-weight="800" font-size="240" fill="#F5B915"
+    letter-spacing="-8">S</text>
+  <text x="256" y="460" text-anchor="middle"
+    font-family="'Arial Narrow','Arial',sans-serif"
+    font-weight="700" font-size="130" fill="#F2EFE7"
+    letter-spacing="2">230</text>
+</svg>

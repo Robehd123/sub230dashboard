@@ -7,12 +7,9 @@ import { AthleteNotes } from "./AthleteNotes.jsx";
 import { BodyCard } from "./BodyCard.jsx";
 import { BACKEND, ACTIVITY_COLOURS, WEEKLY_TARGET_KM } from "./config.js";
 
-// ---- formatting helpers ----
-
 function fmtType(t) {
   return { easy: "Easy", long: "Long", threshold: "Threshold", intervals: "Intervals", strength: "Strength", swim: "Swim" }[t] || t;
 }
-
 function fmtPace(distM, timeS) {
   if (!distM || !timeS) return null;
   const secPerKm = timeS / (distM / 1000);
@@ -20,28 +17,24 @@ function fmtPace(distM, timeS) {
   const sec = Math.round(secPerKm % 60).toString().padStart(2, "0");
   return `${min}:${sec}/km`;
 }
-
 function fmtDist(m) { return (m / 1000).toFixed(1) + " km"; }
 function fmtTime(s) {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
-
 function getTodayKey() {
   return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
 }
 
-// ---- week strip ----
-
 const WEEK_SCHEDULE = [
-  { d: "Mon", label: "Gym: legs",        type: "strength"  },
-  { d: "Tue", label: "Commute + track",  type: "intervals" },
-  { d: "Wed", label: "Commute",          type: "easy"      },
-  { d: "Thu", label: "Treadmill reps",   type: "intervals" },
-  { d: "Fri", label: "Commute",          type: "easy"      },
-  { d: "Sat", label: "Long run",         type: "long"      },
-  { d: "Sun", label: "Easy or swim",     type: "easy"      },
+  { d: "Mon", label: "Gym: legs",       type: "strength"  },
+  { d: "Tue", label: "Commute + track", type: "intervals" },
+  { d: "Wed", label: "Commute",         type: "easy"      },
+  { d: "Thu", label: "Treadmill reps",  type: "intervals" },
+  { d: "Fri", label: "Commute",         type: "easy"      },
+  { d: "Sat", label: "Long run",        type: "long"      },
+  { d: "Sun", label: "Easy or swim",    type: "easy"      },
 ];
 
 function buildWeekStrip(activities) {
@@ -59,13 +52,11 @@ function buildWeekStrip(activities) {
   }));
 }
 
-// map today to the plan session key
 const DAY_TO_PLAN = {
   Mon: "monday", Tue: "tuesday", Wed: "wednesday",
   Thu: "thursday", Fri: "friday", Sat: "saturday", Sun: "sunday",
 };
 
-// ---- helper: extract text from weekFocus or keyLever (handles both old string and new {summary,body} shape) ----
 function focusSummary(val) {
   if (!val) return null;
   if (typeof val === "string") return val;
@@ -78,7 +69,6 @@ function focusBody(val) {
   if (typeof val === "object" && val.body) return String(val.body);
   return null;
 }
-// Safe string renderer: prevents React error #31 when an API field is unexpectedly an object
 function safeStr(val) {
   if (val === null || val === undefined) return null;
   if (typeof val === "string") return val;
@@ -86,7 +76,11 @@ function safeStr(val) {
   return String(val);
 }
 
-// ---- dashboard ----
+const TABS = [
+  { id: "today",    glyph: "05:45", label: "Today"    },
+  { id: "plan",     glyph: "WK",    label: "Plan"     },
+  { id: "progress", glyph: "2:30",  label: "Progress" },
+];
 
 export default function Dashboard() {
   const [liveData, setLiveData]         = useState(null);
@@ -95,11 +89,27 @@ export default function Dashboard() {
   const [nextWeekPlan, setNextWeekPlan] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
+  const [activeTab, setActiveTab]       = useState("today");
+
+  useEffect(() => {
+    const fromHash = () => {
+      const h = location.hash.replace("#", "");
+      if (TABS.find(t => t.id === h)) setActiveTab(h);
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, []);
+
+  const switchTab = (id) => {
+    setActiveTab(id);
+    history.pushState(null, "", `#${id}`);
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     const todayNum = new Date().getDay();
     const isWeekend = todayNum === 0 || todayNum === 6;
-
     Promise.all([
       fetch(`${BACKEND}/api/dashboard`).then(r => r.json()),
       fetch(`${BACKEND}/api/plan`).then(r => r.json()),
@@ -117,16 +127,18 @@ export default function Dashboard() {
   }, []);
 
   if (loading) return (
-    <div style={{ ...S.root, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={S.loadWrap}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 36, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--disp)", marginBottom: 12 }}>Sub230</div>
-        <div style={{ color: "var(--ink-low)", fontSize: 14 }}>Loading your plan…</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--disp)", marginBottom: 12, letterSpacing: 2 }}>
+          SUB<span style={{ color: "var(--ink-hi)" }}>2:30</span>
+        </div>
+        <div style={{ color: "var(--ink-low)", fontSize: 13, fontFamily: "var(--mono)", letterSpacing: "0.1em" }}>LOADING YOUR PLAN</div>
       </div>
     </div>
   );
 
   if (error) return (
-    <div style={{ ...S.root, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={S.loadWrap}>
       <div style={{ textAlign: "center", padding: 24 }}>
         <div style={{ color: "var(--warn)", fontSize: 14, marginBottom: 8 }}>Connection error</div>
         <div style={{ color: "var(--ink-low)", fontSize: 12 }}>{error}</div>
@@ -142,10 +154,9 @@ export default function Dashboard() {
   const remaining  = Math.max(0, target - completed).toFixed(1);
   const isDownWeek = week?.isDownWeek;
 
-  // use the new unified status object when available, fall back to legacy readiness.state
-  const statusObj  = liveData?.status;
-  const legacyState = readiness?.state || "ready";
-  const statusWord  = statusObj?.word || { ready: "Ready", steady: "Caution", hold: "Hold" }[legacyState] || "Ready";
+  const statusObj    = liveData?.status;
+  const legacyState  = readiness?.state || "ready";
+  const statusWord   = statusObj?.word || { ready: "Ready", steady: "Caution", hold: "Hold" }[legacyState] || "Ready";
   const statusColour = statusObj
     ? { pos: "var(--pos)", warn: "var(--warn)", alert: "var(--alert)" }[statusObj.colour] || "var(--pos)"
     : { Ready: "var(--pos)", Caution: "var(--warn)", Hold: "var(--alert)" }[statusWord] || "var(--pos)";
@@ -165,7 +176,7 @@ export default function Dashboard() {
   const session = planSession || commuteSession;
 
   const planKeyToDayNum = { monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6, sunday:0 };
-  const todayNum = new Date().getDay();
+  const todayNum  = new Date().getDay();
   const isWeekend = todayNum === 0 || todayNum === 6;
 
   const allPlanKeys = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
@@ -197,63 +208,119 @@ export default function Dashboard() {
 
   const upcoming = [...thisWeekUpcoming, ...nextWeekUpcoming].slice(0, 5);
   const progress = plan?.sub230Progress;
+  const syncTime = new Date(liveData.lastSync).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div style={S.pageWrap}>
-      <style>{`
-        @media (min-width: 768px) {
-          .dash-root { max-width: 1100px !important; height: auto !important; border-radius: 24px !important; }
-          .dash-scroll { height: auto !important; overflow-y: visible !important; padding: 28px 32px 0 !important; }
-          .dash-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 24px; }
-          .dash-fullwidth { margin-top: 28px; }
-          .dash-strip { margin-bottom: 0 !important; }
-        }
-        @media (max-width: 767px) {
-          .dash-columns { display: block; }
-        }
-      `}</style>
+      <header style={S.header}>
+        <span style={S.brand}>SUB<span style={{ color: "var(--accent)" }}>2:30</span></span>
+        <span style={S.phasePill}>
+          {plan?.phase ? plan.phase.charAt(0).toUpperCase() + plan.phase.slice(1) : "Base"} · 2026
+        </span>
+        <span style={S.syncBadge}>● {syncTime}</span>
+      </header>
 
-      <div className="dash-root" style={S.root}>
-        <div className="dash-scroll" style={S.scroll}>
+      <main style={S.main}>
 
-          {/* header */}
-          <div style={S.header}>
-            <span style={S.brand}>Sub<span style={{ color: "var(--accent)" }}>230</span></span>
-            <span style={S.phasePill}>
-              {plan?.phase ? plan.phase.charAt(0).toUpperCase() + plan.phase.slice(1) + " phase" : "Aerobic base"} · 2026
-            </span>
-          </div>
-
-          <div className="dash-columns">
-
-            {/* ---- LEFT ---- */}
-            <div>
-
-              {/* hero */}
-              <div style={S.heroWrap}>
-                <div style={S.eyebrow}>THIS WEEK</div>
-                <div style={S.heroRow}>
-                  <span style={S.heroNum}>{completed.toFixed(1)}</span>
-                  <span style={S.heroUnit}>/ {target} km</span>
+        {activeTab === "today" && (
+          <div style={S.view}>
+            <div style={S.gantry}>
+              {[
+                { label: "LOAD", word: statusWord, colour: statusColour, detail: statusDetail },
+                {
+                  label: "RECOVERY",
+                  word: readiness?.sleepDuration ? `${Math.round(readiness.sleepDuration / 60 * 10) / 10}h` : "Pending",
+                  colour: readiness?.sleepDuration
+                    ? readiness.sleepDuration >= 420 ? "var(--pos)" : readiness.sleepDuration >= 330 ? "var(--warn)" : "var(--alert)"
+                    : "var(--ink-low)",
+                  detail: readiness?.sleepDuration ? "sleep last night" : "awaiting health data",
+                },
+                {
+                  label: "HAMSTRING",
+                  word: liveData?.status?.word === "Caution" && liveData?.status?.detail?.includes("Injury") ? "Caution" : "Ready",
+                  colour: liveData?.status?.word === "Caution" && liveData?.status?.detail?.includes("Injury") ? "var(--warn)" : "var(--pos)",
+                  detail: liveData?.status?.detail?.includes("Injury") ? "flagged in journal" : "no flags",
+                },
+              ].map(seg => (
+                <div key={seg.label} style={{ ...S.seg, borderTopColor: seg.colour, background: `linear-gradient(180deg, ${seg.colour}12 0%, var(--ground-1) 60%)` }}>
+                  <div style={S.segLabel}>{seg.label}</div>
+                  <div style={{ ...S.segWord, color: seg.colour }}>{seg.word}</div>
+                  <div style={S.segDetail}>{seg.detail}</div>
                 </div>
-                <div style={S.heroSub}>
-                  {isDownWeek
-                    ? <span><span style={{ color: "var(--warn)" }}>Down week</span> · {remaining} km to planned target</span>
-                    : <span>{remaining} km remaining · {pct}% complete</span>
-                  }
-                </div>
-                <div style={S.barTrack}>
-                  <div style={{ ...S.barFill, width: `${pct}%`, background: isDownWeek ? "var(--warn)" : "var(--accent)" }} />
-                </div>
-                <div style={{ ...S.readyPill, borderColor: `${statusColour}55` }}>
-                  <span style={{ ...S.readyDot, background: statusColour }} />
-                  <span style={S.readyLabel}>{statusWord}</span>
-                  <span style={S.readyDelta}>{statusDetail}</span>
-                </div>
+              ))}
+            </div>
+
+            <div style={S.sectionLabel}>TODAY · {todayKey.toUpperCase()}</div>
+            <div style={{ ...S.card, ...S.railCard, "--rail": ACTIVITY_COLOURS[session.type] || ACTIVITY_COLOURS.easy }}>
+              <div style={S.cardHead}>
+                <span style={{ ...S.typeTag, background: ACTIVITY_COLOURS[session.type] || ACTIVITY_COLOURS.easy, color: "var(--ground-0)" }}>
+                  {fmtType(session.type)}
+                </span>
               </div>
+              <div style={S.cardTitle}>{session.title}</div>
+              {(session.detail || []).map((d, i) => (
+                <div key={i} style={S.bulletRow}>
+                  <span style={S.bullet}>▸</span>
+                  <span style={S.bulletText}>{d}</span>
+                </div>
+              ))}
+              {(session.summary || session.rationale) && (
+                <details style={S.details}>
+                  <summary style={S.detailsSummary}>
+                    <span style={S.whyLabel}>WHY</span>
+                    <span style={S.whySummary}>{session.summary || "Session rationale"}</span>
+                    <svg style={S.detailsChev} width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.6"/>
+                    </svg>
+                  </summary>
+                  <p style={{ ...S.whyText, paddingBottom: 4 }}>{session.rationale}</p>
+                </details>
+              )}
+            </div>
 
-              {/* week strip */}
-              <div className="dash-strip" style={S.strip}>
+            <AthleteNotes latestNote={liveData?.latestNote} />
+
+            {(() => {
+              const tomorrowKeys = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+              const tmKey = tomorrowKeys[todayNum === 6 ? 0 : todayNum];
+              const tmSession = plan?.sessions?.[tmKey];
+              if (!tmSession) return null;
+              const tmLabel = tmKey.charAt(0).toUpperCase() + tmKey.slice(1);
+              return (
+                <>
+                  <div style={S.sectionLabel}>TOMORROW · {tmLabel.toUpperCase()}</div>
+                  <div style={{ ...S.card, ...S.railCard, "--rail": ACTIVITY_COLOURS[tmSession.type] || ACTIVITY_COLOURS.easy, opacity: 0.8 }}>
+                    <div style={S.upHead}>
+                      <span style={{ ...S.typeDot, background: ACTIVITY_COLOURS[tmSession.type] || ACTIVITY_COLOURS.easy }} />
+                      <span style={S.upDay}>{tmLabel}</span>
+                    </div>
+                    <div style={S.upTitle}>{tmSession.title}</div>
+                    {tmSession.summary && <p style={S.upSummary}>{tmSession.summary}</p>}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {activeTab === "plan" && (
+          <div style={S.view}>
+            <div style={S.card}>
+              <div style={S.eyebrow}>THIS WEEK</div>
+              <div style={S.heroRow}>
+                <span style={S.heroNum}>{completed.toFixed(1)}</span>
+                <span style={S.heroUnit}>/ {target} km</span>
+              </div>
+              <div style={S.heroSub}>
+                {isDownWeek
+                  ? <span><span style={{ color: "var(--warn)" }}>Down week</span> · {remaining} km to target</span>
+                  : <span>{remaining} km remaining · {pct}%</span>
+                }
+              </div>
+              <div style={S.barTrack}>
+                <div style={{ ...S.barFill, width: `${pct}%`, background: isDownWeek ? "var(--warn)" : "var(--accent)" }} />
+              </div>
+              <div style={{ ...S.strip, marginTop: 16 }}>
                 {weekStrip.map(x => (
                   <div key={x.d} style={S.stripCol}>
                     <div style={{
@@ -266,127 +333,52 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* week focus */}
-              {plan?.weekFocus && (
-                <div style={S.focusBanner}>
-                  <span style={S.focusLabel}>WEEK FOCUS</span>
-                  <p style={S.focusText}>{focusSummary(plan.weekFocus)}</p>
-                  {focusBody(plan.weekFocus) && (
-                    <p style={{ ...S.focusText, marginTop: 6, color: "var(--ink-low)" }}>{focusBody(plan.weekFocus)}</p>
-                  )}
-                </div>
-              )}
-
-              {/* today session */}
-              <div style={S.sectionLabel}>TODAY · {todayKey.toUpperCase()}</div>
-              <div style={S.card}>
-                <div style={S.cardHead}>
-                  <span style={{ ...S.typeTag, background: ACTIVITY_COLOURS[session.type] || ACTIVITY_COLOURS.easy, color: "var(--ground-0)" }}>
-                    {fmtType(session.type)}
-                  </span>
-                </div>
-                <div style={S.cardTitle}>{session.title}</div>
-                {(session.detail || []).map((d, i) => (
-                  <div key={i} style={S.bulletRow}>
-                    <span style={S.bullet}>▸</span>
-                    <span style={S.bulletText}>{d}</span>
-                  </div>
-                ))}
-                {(session.summary || session.rationale) && (
-                  <div style={S.why}>
-                    <span style={S.whyLabel}>WHY</span>
-                    {session.summary && <p style={S.whySummary}>{session.summary}</p>}
-                    {session.rationale && <p style={S.whyText}>{session.rationale}</p>}
-                  </div>
+            {plan?.weekFocus && (
+              <div style={S.focusBanner}>
+                <span style={S.focusLabel}>WEEK FOCUS</span>
+                <p style={S.focusText}>{focusSummary(plan.weekFocus)}</p>
+                {focusBody(plan.weekFocus) && (
+                  <p style={{ ...S.focusText, marginTop: 6, color: "var(--ink-low)" }}>{focusBody(plan.weekFocus)}</p>
                 )}
               </div>
+            )}
 
-              {/* journal */}
-              <AthleteNotes latestNote={liveData?.latestNote} />
-            </div>
-
-            {/* ---- RIGHT ---- */}
-            <div>
-
-              {/* coming up */}
-              {upcoming.length > 0 && (
-                <>
-                  <div style={S.sectionLabel}>COMING UP</div>
-                  {upcoming.map((u, i) => (
-                    <div key={i} style={S.card}>
-                      <div style={S.upHead}>
-                        <span style={{ ...S.typeDot, background: ACTIVITY_COLOURS[u.type] || ACTIVITY_COLOURS.easy }} />
-                        <span style={S.upDay}>{u.dayLabel}</span>
-                        {u.weekLabel && <span style={{ fontSize: 10, color: "var(--accent)", opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{u.weekLabel}</span>}
-                      </div>
-                      <div style={S.upTitle}>{u.title}</div>
-                      {u.summary && <p style={S.upSummary}>{u.summary}</p>}
-                      {(u.detail || []).slice(0, 2).map((d, j) => (
-                        <div key={j} style={S.bulletRow}>
-                          <span style={S.bullet}>▸</span>
-                          <span style={S.bulletText}>{d}</span>
-                        </div>
-                      ))}
+            {upcoming.length > 0 && (
+              <>
+                <div style={S.sectionLabel}>COMING UP</div>
+                {upcoming.map((u, i) => (
+                  <div key={i} style={{ ...S.card, ...S.railCard, "--rail": ACTIVITY_COLOURS[u.type] || ACTIVITY_COLOURS.easy }}>
+                    <div style={S.upHead}>
+                      <span style={{ ...S.typeDot, background: ACTIVITY_COLOURS[u.type] || ACTIVITY_COLOURS.easy }} />
+                      <span style={S.upDay}>{u.dayLabel}</span>
+                      {u.weekLabel && <span style={{ fontSize: 10, color: "var(--accent)", opacity: 0.7, marginLeft: 6 }}>{u.weekLabel}</span>}
                     </div>
-                  ))}
-                </>
-              )}
-
-              {/* fitness metrics */}
-              <div style={S.sectionLabel}>FITNESS METRICS</div>
-              <FitnessCards fitness={liveData?.fitness} />
-
-              {/* sub-2:30 progress */}
-              {progress && (
-                <>
-                  <div style={S.sectionLabel}>SUB 2:30 PROGRESS</div>
-                  <div style={S.card}>
-                    <div style={S.progressRow}>
-                      <div style={S.progressStat}>
-                        <div style={S.progressNum}>{safeStr(progress.currentEquivalent)}</div>
-                        <div style={S.progressLabel}>Current equivalent</div>
+                    <div style={S.upTitle}>{u.title}</div>
+                    {u.summary && <p style={S.upSummary}>{u.summary}</p>}
+                    {(u.detail || []).slice(0, 2).map((d, j) => (
+                      <div key={j} style={S.bulletRow}>
+                        <span style={S.bullet}>▸</span>
+                        <span style={S.bulletText}>{d}</span>
                       </div>
-                      <div style={S.progressDivider} />
-                      <div style={S.progressStat}>
-                        <div style={{ ...S.progressNum, color: progress.onTrack ? "var(--pos)" : "var(--warn)" }}>
-                          {progress.onTrack ? "On track" : "Off track"}
-                        </div>
-                        <div style={S.progressLabel}>vs sub-2:30 target</div>
-                      </div>
-                    </div>
-                    {safeStr(plan?.progressNote) && <p style={S.whyText}>{safeStr(plan.progressNote)}</p>}
-                    {progress.keyLever && (
-                      <div style={S.keyLever}>
-                        <span style={S.whyLabel}>KEY LEVER</span>
-                        <p style={{ ...S.whySummary, color: "var(--accent)" }}>{focusSummary(progress.keyLever)}</p>
-                        {focusBody(progress.keyLever) && (
-                          <p style={{ ...S.whyText, marginTop: 6 }}>{focusBody(progress.keyLever)}</p>
-                        )}
-                      </div>
+                    ))}
+                    {u.rationale && (
+                      <details style={S.details}>
+                        <summary style={S.detailsSummary}>
+                          <span style={S.whyLabel}>WHY</span>
+                          <span style={S.whySummary}>{u.summary || "Session rationale"}</span>
+                          <svg style={S.detailsChev} width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.6"/>
+                          </svg>
+                        </summary>
+                        <p style={{ ...S.whyText, paddingBottom: 4 }}>{u.rationale}</p>
+                      </details>
                     )}
                   </div>
-                </>
-              )}
-
-              {/* recent runs */}
-              <div style={S.sectionLabel}>RECENT RUNS</div>
-              {(recentActivities || []).slice(0, 4).map((a, i) => (
-                <ActivityFeedbackCard
-                  key={i}
-                  activity={a}
-                  typeColour={ACTIVITY_COLOURS[a.type] || ACTIVITY_COLOURS.easy}
-                  fmtDist={fmtDist}
-                  fmtTime={fmtTime}
-                  fmtPace={fmtPace}
-                  recentFeedback={liveData?.recentFeedback}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* ---- FULL WIDTH ---- */}
-          <div className="dash-fullwidth">
+                ))}
+              </>
+            )}
 
             <div style={S.sectionLabel}>VOLUME · LAST 8 WEEKS</div>
             <div style={S.card}>
@@ -397,6 +389,49 @@ export default function Dashboard() {
                 <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "rgba(245,185,21,0.2)", border: "1px dashed rgba(245,185,21,0.4)" }} /> Target</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === "progress" && (
+          <div style={S.view}>
+            {progress && (
+              <>
+                <div style={S.sectionLabel}>SUB 2:30 PROGRESS</div>
+                <div style={S.card}>
+                  <div style={S.progressRow}>
+                    <div style={S.progressStat}>
+                      <div style={S.progressNum}>{safeStr(progress.currentEquivalent)}</div>
+                      <div style={S.progressLabel}>Current equivalent</div>
+                    </div>
+                    <div style={S.progressDivider} />
+                    <div style={S.progressStat}>
+                      <div style={{ ...S.progressNum, color: progress.onTrack ? "var(--pos)" : "var(--warn)" }}>
+                        {progress.onTrack ? "On track" : "Caution"}
+                      </div>
+                      <div style={S.progressLabel}>vs sub-2:30 target</div>
+                    </div>
+                  </div>
+                  {safeStr(plan?.progressNote) && <p style={S.whyText}>{safeStr(plan.progressNote)}</p>}
+                  {progress.keyLever && (
+                    <details style={S.details}>
+                      <summary style={S.detailsSummary}>
+                        <span style={S.whyLabel}>KEY LEVER</span>
+                        <span style={{ ...S.whySummary, color: "var(--accent)" }}>{focusSummary(progress.keyLever)}</span>
+                        <svg style={S.detailsChev} width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.6"/>
+                        </svg>
+                      </summary>
+                      {focusBody(progress.keyLever) && (
+                        <p style={{ ...S.whyText, paddingBottom: 4 }}>{focusBody(progress.keyLever)}</p>
+                      )}
+                    </details>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div style={S.sectionLabel}>FITNESS METRICS</div>
+            <FitnessCards fitness={liveData?.fitness} />
 
             <div style={S.sectionLabel}>HEALTH · TODAY</div>
             <HealthCards
@@ -412,6 +447,19 @@ export default function Dashboard() {
             />
 
             <BodyCard body={liveData?.body} />
+
+            <div style={S.sectionLabel}>RECENT RUNS</div>
+            {(recentActivities || []).slice(0, 4).map((a, i) => (
+              <ActivityFeedbackCard
+                key={i}
+                activity={a}
+                typeColour={ACTIVITY_COLOURS[a.type] || ACTIVITY_COLOURS.easy}
+                fmtDist={fmtDist}
+                fmtTime={fmtTime}
+                fmtPace={fmtPace}
+                recentFeedback={liveData?.recentFeedback}
+              />
+            ))}
 
             <div style={{ ...S.sectionLabel, marginTop: 20 }}>ACTIVITY · LAST 12 WEEKS</div>
             <div style={{ ...S.card, paddingLeft: 28 }}>
@@ -429,18 +477,27 @@ export default function Dashboard() {
               <div style={S.cardDetail}>Target window · late 2027</div>
               <p style={S.whyText}>No fixed date yet. The plan locks to a precise countdown once a race is chosen.</p>
             </div>
-
-            <div style={S.footer}>
-              Live data · last sync {new Date(liveData.lastSync).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+      </main>
+
+      <nav style={S.tabBar}>
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            style={{ ...S.tab, color: activeTab === t.id ? "var(--accent)" : "var(--ink-low)" }}
+            onClick={() => switchTab(t.id)}
+            aria-current={activeTab === t.id ? "page" : undefined}
+          >
+            <span style={{ ...S.tabGlyph, fontFamily: "var(--disp)", fontWeight: 700, fontSize: 16 }}>{t.glyph}</span>
+            <span style={S.tabLabel}>{t.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
-
-// ---- volume chart (bars, not line) ----
 
 function VolumeChart({ series }) {
   if (!series?.actual?.length) return null;
@@ -479,83 +536,116 @@ function VolumeChart({ series }) {
         const barH  = chartH * (val / maxVal);
         const isDown = series.down?.[i];
         return (
-          <rect
-            key={i}
-            x={xLeft(i)} y={yPos(val)}
-            width={barW} height={barH}
-            rx="3"
-            fill={isDown ? "var(--warn)" : "var(--run)"}
-            opacity="0.85"
-          />
+          <rect key={i} x={xLeft(i)} y={yPos(val)} width={barW} height={barH} rx="3"
+            fill={isDown ? "var(--warn)" : "var(--run)"} opacity="0.85" />
         );
       })}
       {series.weeks.map((wk, i) => (
-        <text key={i} x={xLeft(i) + barW / 2} y={H - 6} textAnchor="middle" fontSize="7.5" fill="var(--ink-low)" fontFamily="var(--mono)">{wk}</text>
+        <text key={i} x={xLeft(i) + barW / 2} y={H - 6} textAnchor="middle" fontSize="7.5"
+          fill="var(--ink-low)" fontFamily="var(--mono)">{wk}</text>
       ))}
     </svg>
   );
 }
 
-// ---- styles ----
+const HEADER_H = 52;
+const TAB_H    = 58;
 
 const S = {
-  pageWrap: { minHeight: "100dvh", background: "var(--ground-0)", display: "flex", alignItems: "flex-start", justifyContent: "center" },
-  root: {
-    position: "relative", width: "100%", maxWidth: 420, margin: "0 auto",
-    minHeight: "100dvh", background: "var(--ground-0)",
-    fontFamily: "var(--body)", color: "var(--ink-hi)", overflow: "hidden",
+  pageWrap: { minHeight: "100dvh", background: "var(--ground-0)", color: "var(--ink-hi)", fontFamily: "var(--body)" },
+  loadWrap: { minHeight: "100dvh", background: "var(--ground-0)", display: "flex", alignItems: "center", justifyContent: "center" },
+  header: {
+    position: "fixed", inset: "0 0 auto 0", zIndex: 30,
+    paddingTop: "calc(10px + env(safe-area-inset-top))",
+    paddingBottom: 10, paddingLeft: 18, paddingRight: 18,
+    display: "flex", alignItems: "center", gap: 10,
+    background: "rgba(11,10,8,0.82)",
+    backdropFilter: "saturate(1.4) blur(14px)",
+    WebkitBackdropFilter: "saturate(1.4) blur(14px)",
+    borderBottom: "1px solid var(--line)",
   },
-  scroll: { position: "relative", zIndex: 1, padding: "20px 18px 0", boxSizing: "border-box" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 },
-  brand: { fontWeight: 800, fontSize: 18, letterSpacing: 2, fontFamily: "var(--disp)", color: "var(--ink-hi)" },
-  phasePill: { fontSize: 11, color: "var(--ink-mid)", background: "var(--ground-1)", padding: "5px 11px", borderRadius: 12, fontFamily: "var(--mono)", letterSpacing: "0.1em" },
-  heroWrap: { marginBottom: 22 },
-  eyebrow: { fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.18em", color: "var(--ink-low)", marginBottom: 6 },
-  heroRow: { display: "flex", alignItems: "baseline", gap: 10 },
-  heroNum: { fontSize: 84, fontWeight: 800, lineHeight: 0.9, letterSpacing: -3, color: "var(--ink-hi)", fontFamily: "var(--disp)" },
-  heroUnit: { fontSize: 26, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--disp)" },
-  heroSub: { fontSize: 13, color: "var(--ink-mid)", marginTop: 10, fontFamily: "var(--mono)" },
-  barTrack: { height: 5, background: "var(--ground-2)", borderRadius: 3, marginTop: 14, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 3, transition: "width 0.4s ease" },
-  readyPill: { display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14, padding: "8px 12px", background: "var(--ground-1)", border: "1px solid", borderRadius: 99 },
-  readyDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
-  readyLabel: { fontSize: 13, fontWeight: 600, color: "var(--ink-hi)" },
-  readyDelta: { fontSize: 11, color: "var(--ink-low)", fontFamily: "var(--mono)" },
-  strip: { display: "flex", justifyContent: "space-between", margin: "8px 0 20px" },
-  stripCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1 },
-  stripDot: { width: 22, height: 22, borderRadius: 7 },
-  stripDay: { fontSize: 10, fontWeight: 500, fontFamily: "var(--mono)", letterSpacing: "0.08em" },
-  stripKm: { fontSize: 9, color: "var(--ink-low)", fontFamily: "var(--mono)" },
-  focusBanner: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 16 },
-  focusLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase" },
-  focusText: { fontSize: 13, color: "var(--ink-mid)", margin: "5px 0 0", lineHeight: 1.55 },
-  sectionLabel: { fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.2em", color: "var(--ink-low)", textTransform: "uppercase", margin: "8px 2px 12px" },
-  card: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "16px 18px", marginBottom: 14, textAlign: "left" },
-  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  typeTag: { fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500, padding: "4px 10px", borderRadius: "var(--r-s)", letterSpacing: "0.14em", textTransform: "uppercase" },
-  cardTitle: { fontSize: 20, fontWeight: 700, marginBottom: 10, color: "var(--ink-hi)" },
+  brand: { fontFamily: "var(--disp)", fontWeight: 800, fontSize: 20, letterSpacing: ".04em", color: "var(--accent)" },
+  phasePill: {
+    fontFamily: "var(--mono)", fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase",
+    color: "var(--ink-mid)", border: "1px solid var(--line)", borderRadius: 99, padding: "3px 9px",
+  },
+  syncBadge: { marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", letterSpacing: ".08em" },
+  main: {
+    paddingTop: `calc(${HEADER_H}px + env(safe-area-inset-top) + 14px)`,
+    paddingBottom: `calc(${TAB_H}px + env(safe-area-inset-bottom) + 20px)`,
+    paddingLeft: 16, paddingRight: 16,
+    maxWidth: 640, margin: "0 auto",
+  },
+  view: { animation: "fadeIn .22s ease" },
+  tabBar: {
+    position: "fixed", inset: "auto 0 0 0", zIndex: 30,
+    display: "flex",
+    paddingBottom: "env(safe-area-inset-bottom)",
+    background: "rgba(11,10,8,0.88)",
+    backdropFilter: "saturate(1.4) blur(14px)",
+    WebkitBackdropFilter: "saturate(1.4) blur(14px)",
+    borderTop: "1px solid var(--line)",
+  },
+  tab: {
+    flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+    padding: "9px 0 8px", background: "none", border: "none", cursor: "pointer",
+    minHeight: 44, transition: "color .18s",
+  },
+  tabGlyph: { display: "block" },
+  tabLabel: { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase" },
+  gantry: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 },
+  seg: {
+    borderRadius: "var(--r-s)", padding: "10px 10px 12px",
+    border: "1px solid var(--line)", borderTop: "3px solid",
+    background: "var(--ground-1)",
+  },
+  segLabel: { fontFamily: "var(--mono)", fontSize: 8.5, letterSpacing: ".16em", color: "var(--ink-low)", textTransform: "uppercase" },
+  segWord:  { fontFamily: "var(--disp)", fontWeight: 700, fontSize: 19, marginTop: 5, letterSpacing: ".02em" },
+  segDetail:{ fontFamily: "var(--mono)", fontSize: 9.5, color: "var(--ink-mid)", marginTop: 2 },
+  card: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "16px 18px", marginBottom: 10, textAlign: "left" },
+  railCard: { paddingLeft: 22, borderLeft: "4px solid var(--rail, var(--run))", position: "relative" },
+  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  typeTag: { fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500, padding: "4px 10px", borderRadius: "var(--r-s)", letterSpacing: ".14em", textTransform: "uppercase" },
+  cardTitle: { fontSize: 19, fontWeight: 700, marginBottom: 10, color: "var(--ink-hi)", letterSpacing: "-.01em" },
   cardDetail: { fontSize: 13, color: "var(--ink-low)", fontFamily: "var(--mono)", marginBottom: 6 },
-  bulletRow: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 },
+  bulletRow: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 },
   bullet: { color: "var(--accent)", fontSize: 10, marginTop: 4, flexShrink: 0, opacity: 0.8 },
-  bulletText: { fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-mid)", lineHeight: 1.55, flex: 1, letterSpacing: "0.02em" },
-  why: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" },
-  whyLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase" },
-  whySummary: { fontSize: 13, color: "var(--ink-mid)", margin: "5px 0 0", lineHeight: 1.45 },
-  whyText: { fontSize: 13, lineHeight: 1.6, color: "var(--ink-low)", margin: "6px 0 0" },
-  upHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  bulletText: { fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-mid)", lineHeight: 1.55, flex: 1, letterSpacing: ".02em" },
+  details: { marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" },
+  detailsSummary: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", listStyle: "none", minHeight: 36 },
+  detailsChev: { flexShrink: 0, color: "var(--ink-low)", marginLeft: "auto" },
+  whyLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: ".2em", color: "var(--accent)", textTransform: "uppercase", flexShrink: 0 },
+  whySummary: { fontSize: 13, color: "var(--ink-mid)", lineHeight: 1.4, flex: 1 },
+  whyText: { fontSize: 13, lineHeight: 1.6, color: "var(--ink-low)", margin: "8px 0 0" },
+  heroWrap: { marginBottom: 16 },
+  eyebrow: { fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: ".2em", color: "var(--ink-low)", marginBottom: 5, textTransform: "uppercase" },
+  heroRow: { display: "flex", alignItems: "baseline", gap: 8 },
+  heroNum: { fontSize: 72, fontWeight: 800, lineHeight: .92, letterSpacing: -2, color: "var(--ink-hi)", fontFamily: "var(--disp)" },
+  heroUnit: { fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--disp)" },
+  heroSub: { fontSize: 12, color: "var(--ink-mid)", marginTop: 8, fontFamily: "var(--mono)" },
+  barTrack: { height: 5, background: "var(--ground-2)", borderRadius: 3, marginTop: 12, overflow: "hidden" },
+  barFill: { height: "100%", borderRadius: 3, transition: "width .4s ease" },
+  strip: { display: "flex", justifyContent: "space-between" },
+  stripCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flex: 1 },
+  stripDot: { width: 22, height: 22, borderRadius: 7 },
+  stripDay: { fontSize: 9.5, fontWeight: 500, fontFamily: "var(--mono)", letterSpacing: ".08em" },
+  stripKm: { fontSize: 9, color: "var(--ink-low)", fontFamily: "var(--mono)" },
+  focusBanner: { background: "var(--ground-1)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 10 },
+  focusLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: ".2em", color: "var(--accent)", textTransform: "uppercase" },
+  focusText: { fontSize: 13, color: "var(--ink-mid)", margin: "5px 0 0", lineHeight: 1.55 },
+  sectionLabel: { fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: ".2em", color: "var(--ink-low)", textTransform: "uppercase", margin: "18px 2px 10px" },
+  upHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 },
   typeDot: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0 },
-  upDay: { fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 500, letterSpacing: "0.1em", color: "var(--ink-mid)", textTransform: "uppercase" },
-  upTitle: { fontSize: 16, fontWeight: 650, marginBottom: 6, color: "var(--ink-hi)" },
-  upSummary: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 8, lineHeight: 1.45 },
-  progressRow: { display: "flex", alignItems: "center", gap: 16, marginBottom: 14 },
+  upDay: { fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 500, letterSpacing: ".1em", color: "var(--ink-mid)", textTransform: "uppercase" },
+  upTitle: { fontSize: 16, fontWeight: 650, marginBottom: 5, color: "var(--ink-hi)" },
+  upSummary: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 7, lineHeight: 1.45 },
+  progressRow: { display: "flex", alignItems: "center", gap: 16, marginBottom: 12 },
   progressStat: { flex: 1, textAlign: "center" },
-  progressNum: { fontFamily: "var(--disp)", fontSize: 28, fontWeight: 800, color: "var(--ink-hi)", letterSpacing: 0 },
-  progressLabel: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", marginTop: 4, letterSpacing: "0.1em" },
+  progressNum: { fontFamily: "var(--disp)", fontSize: 28, fontWeight: 800, color: "var(--ink-hi)" },
+  progressLabel: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", marginTop: 4, letterSpacing: ".1em" },
   progressDivider: { width: 1, height: 40, background: "var(--line)" },
-  keyLever: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" },
   legendRow: { display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" },
-  legendItem: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", letterSpacing: "0.08em" },
+  legendItem: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", letterSpacing: ".08em" },
   legendSwatch: { width: 9, height: 9, borderRadius: 2, flexShrink: 0 },
   raceNum: { fontFamily: "var(--disp)", fontSize: 38, fontWeight: 800, color: "var(--ink-hi)", marginBottom: 8 },
-  footer: { fontFamily: "var(--mono)", textAlign: "center", fontSize: 10, color: "var(--ink-low)", padding: "20px 0 28px", letterSpacing: "0.1em" },
 };
