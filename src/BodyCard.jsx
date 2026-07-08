@@ -2,9 +2,8 @@
 
 import React from "react";
 
-const YELLOW = "#FFFF00";
-const GREEN  = "#19E785";
-const ORANGE = "#EC9649";
+const GREEN  = "var(--pos)";
+const ORANGE = "var(--warn)";
 
 export function BodyCard({ body }) {
   if (!body?.weight_kg && !body?.body_fat_pct) {
@@ -67,12 +66,12 @@ export function BodyCard({ body }) {
 }
 
 const BC = {
-  wrap: {
-    background: "#0D0D0B",
-    border: "1px solid #1A1A18",
-    borderRadius: 16,
+wrap: {
+    background: "var(--ground-1)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--r)",
     padding: "14px 18px",
-    marginBottom: 14,
+    marginBottom: 10,
   },
   header: {
     display: "flex",
@@ -80,15 +79,17 @@ const BC = {
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  label: {
-    fontSize: 10,
-    color: "#6A6A63",
-    letterSpacing: 1.4,
-    fontWeight: 500,
+label: {
+    fontFamily: "var(--mono)",
+    fontSize: 9.5,
+    color: "var(--ink-low)",
+    letterSpacing: ".16em",
+    textTransform: "uppercase",
   },
   date: {
-    fontSize: 11,
-    color: "#5A5A55",
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    color: "var(--ink-low)",
   },
   grid: {
     display: "flex",
@@ -122,9 +123,10 @@ const BC = {
     marginTop: 4,
     fontWeight: 500,
   },
-  pending: {
-    fontSize: 12,
-    color: "#3A3A38",
+pending: {
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    color: "var(--ink-low)",
     lineHeight: 1.5,
   },
 };

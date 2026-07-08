@@ -1,38 +1,30 @@
-// FitnessCards.jsx — four fitness metric cards plus plain-English analysis
-// VDOT with trend, CTL with sparkline, TSB with status, Pace@HR trend
-
-import React, { useState } from "react";
-
-const YELLOW = "#FFFF00";
-const GREEN  = "#19E785";
-const ORANGE = "#EC9649";
-const RED    = "#F87171";
+import React from "react";
 
 const EXPLAINERS = {
   vdot: {
     title: "VDOT",
-    body: "A number that represents your current running fitness, derived from your training paces. Developed by coach Jack Daniels. A higher VDOT means faster prescribed training paces. Your sub-2:30 marathon requires a VDOT of around 55. Think of it as your running fitness score.",
+    body: "A number representing current running fitness, derived from training paces. Developed by coach Jack Daniels. Your sub-2:30 marathon requires a VDOT of around 55.",
   },
   ctl: {
-    title: "CTL — Chronic Training Load",
-    body: "Your 42-day rolling average of daily training load. It represents your fitness base: how much training stress your body is adapted to absorb. A rising CTL means you are getting fitter. Sub-2:30 athletes typically sustain a CTL of 90-110+. The sparkline shows how yours has trended over recent weeks.",
+    title: "CTL: Chronic Training Load",
+    body: "Your 42-day rolling average of daily training load. A rising CTL means you are getting fitter. Sub-2:30 athletes typically sustain a CTL of 90 to 110.",
   },
   tsb: {
-    title: "TSB — Training Stress Balance",
-    body: "CTL minus ATL (your 7-day acute load). It is your form score. Positive means you are fresher than your fitness baseline — good before a race or a key session. Negative means you are carrying fatigue. Most productive training happens between -10 and -30. Above +10 you may be undertraining.",
+    title: "TSB: Training Stress Balance",
+    body: "CTL minus ATL (your 7-day acute load). Positive means fresher than your fitness baseline. Most productive training happens between -10 and -30.",
   },
   paceAtHr: {
     title: "Pace at 140 bpm",
-    body: "Your average running pace when your heart rate is around 140 bpm, compared to four weeks ago. If you are running faster at the same heart rate, your aerobic system is improving. This is one of the clearest long-term signals of marathon fitness development.",
+    body: "Your average pace at around 140 bpm versus four weeks ago. Running faster at the same heart rate means your aerobic system is improving.",
   },
 };
 
 function tsbColour(tsb) {
-  if (tsb === null || tsb === undefined) return "#5A5A55";
-  if (tsb >= 5)   return GREEN;
-  if (tsb >= -5)  return YELLOW;
-  if (tsb >= -15) return ORANGE;
-  return RED;
+  if (tsb === null || tsb === undefined) return "var(--ink-low)";
+  if (tsb >= 5)   return "var(--pos)";
+  if (tsb >= -5)  return "var(--accent)";
+  if (tsb >= -15) return "var(--warn)";
+  return "var(--alert)";
 }
 
 function tsbLabel(tsb) {
@@ -47,9 +39,9 @@ function TrendArrow({ delta, invert = false }) {
   if (delta === null || delta === undefined) return null;
   const isGood = invert ? delta < 0 : delta > 0;
   const isNeutral = Math.abs(delta) < 0.5;
-  if (isNeutral) return <span style={{ color: "#5A5A55", fontSize: 12 }}>→</span>;
+  if (isNeutral) return <span style={{ color: "var(--ink-low)", fontSize: 12 }}>→</span>;
   return (
-    <span style={{ color: isGood ? GREEN : ORANGE, fontSize: 12, marginLeft: 3 }}>
+    <span style={{ color: isGood ? "var(--pos)" : "var(--warn)", fontSize: 12, marginLeft: 3 }}>
       {isGood ? "↑" : "↓"}
     </span>
   );
@@ -70,66 +62,45 @@ function Sparkline({ values, width = 60, height = 24 }) {
       <polyline
         points={pts.join(" ")}
         fill="none"
-        stroke={YELLOW}
+        stroke="var(--accent)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.7"
+        opacity="0.8"
       />
       <circle
         cx={parseFloat(pts[pts.length - 1].split(",")[0])}
         cy={parseFloat(pts[pts.length - 1].split(",")[1])}
         r="2.5"
-        fill={YELLOW}
+        fill="var(--accent)"
       />
     </svg>
   );
 }
 
-function InfoButton({ metricKey }) {
-  const [open, setOpen] = useState(false);
+function FitnessCard({ title, main, sub, metricKey, children }) {
   const explainer = EXPLAINERS[metricKey];
-  if (!explainer) return null;
-
   return (
-    <div style={FC.infoWrap}>
-      <button
-        style={FC.infoBtn}
-        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
-        aria-label={`Explain ${explainer.title}`}
-        title={explainer.title}
-      >
-        ?
-      </button>
-      {open && (
-        <>
-          <div style={FC.backdrop} onClick={() => setOpen(false)} />
-          <div style={FC.tooltip} onClick={e => e.stopPropagation()}>
-            <div style={FC.tooltipTitle}>{explainer.title}</div>
-            <p style={FC.tooltipBody}>{explainer.body}</p>
-            <button style={FC.tooltipClose} onClick={() => setOpen(false)}>✕</button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function FitnessCard({ title, icon, main, sub, glow, metricKey, children }) {
-  return (
-    <div style={{ ...FC.card, boxShadow: glow ? `0 0 16px 3px ${glow}` : "none", position: "relative" }}>
+    <div style={FC.card}>
       <div style={FC.cardTop}>
-        <span style={FC.icon}>{icon}</span>
         <span style={FC.label}>{title}</span>
-        <div style={{ marginLeft: "auto" }}>
-          <InfoButton metricKey={metricKey} />
-        </div>
       </div>
       <div style={FC.mainRow}>
         <span style={FC.main}>{main ?? "—"}</span>
         {children}
       </div>
       {sub && <div style={FC.sub}>{sub}</div>}
+      {explainer && (
+        <details style={FC.details}>
+          <summary style={FC.summary}>
+            <span style={FC.summaryLabel}>WHAT IS THIS</span>
+            <svg style={FC.chev} width="12" height="12" viewBox="0 0 14 14" fill="none">
+              <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.6"/>
+            </svg>
+          </summary>
+          <p style={FC.explainerBody}>{explainer.body}</p>
+        </details>
+      )}
     </div>
   );
 }
@@ -140,82 +111,56 @@ export function FitnessCards({ fitness }) {
   const { vdot, vdotTrend, ctl, tsb, ctlSparkline, paceAtHr, paceAtHrDelta, predictedMarathon } = fitness;
   const tsbColor = tsbColour(tsb);
 
-  // brief plain-English analysis of the four numbers together
   const analysis = (() => {
     if (!vdot || ctl === null || ctl === undefined) return null;
     const ctlLow = ctl < 15;
     const tsbNeg = tsb !== null && tsb < -5;
     const tsbPos = tsb !== null && tsb > 5;
     const paceGood = paceAtHrDelta !== null && paceAtHrDelta < -2;
-    const paceBad = paceAtHrDelta !== null && paceAtHrDelta > 2;
-
-    if (ctlLow && tsbPos) return "Low fitness base but fresh — good window to start building volume.";
-    if (ctlLow && tsbNeg) return "Low fitness base and carrying fatigue — prioritise consistency over intensity.";
-    if (!ctlLow && tsbNeg) return "Solid base but currently fatigued — a down week may be due.";
-    if (!ctlLow && tsbPos && paceGood) return "Strong base, fresh, and getting faster at the same effort — good form right now.";
-    if (!ctlLow && tsbPos) return "Solid base and fresh — well placed for a quality session.";
-    if (paceBad) return "Pace at this heart rate has slowed — worth checking sleep, stress, or recent load.";
-    return "Building consistent data — trends will sharpen over the next few weeks.";
+    const paceBad  = paceAtHrDelta !== null && paceAtHrDelta > 2;
+    if (ctlLow && tsbPos)  return "Low fitness base but fresh. Good window to start building volume.";
+    if (ctlLow && tsbNeg)  return "Low fitness base and carrying fatigue. Prioritise consistency over intensity.";
+    if (!ctlLow && tsbNeg) return "Solid base but currently fatigued. A down week may be due.";
+    if (!ctlLow && tsbPos && paceGood) return "Strong base, fresh, and getting faster at the same effort.";
+    if (!ctlLow && tsbPos) return "Solid base and fresh. Well placed for a quality session.";
+    if (paceBad) return "Pace at this heart rate has slowed. Worth checking sleep, stress, or recent load.";
+    return "Building consistent data. Trends will sharpen over the next few weeks.";
   })();
 
   return (
     <>
       <div style={FC.grid}>
-
-        <FitnessCard
-          title="VDOT"
-          icon="◈"
-          metricKey="vdot"
+        <FitnessCard title="VDOT" metricKey="vdot"
           main={vdot ?? "—"}
-          sub={predictedMarathon ? `~${predictedMarathon} marathon` : "Building data"}
-          glow="rgba(255,255,0,0.14)"
-        >
+          sub={predictedMarathon ? `~${predictedMarathon} marathon` : "Building data"}>
           <TrendArrow delta={vdotTrend} />
         </FitnessCard>
 
-        <FitnessCard
-          title="Fitness (CTL)"
-          icon="◉"
-          metricKey="ctl"
+        <FitnessCard title="FITNESS (CTL)" metricKey="ctl"
           main={ctl?.toFixed(1) ?? "—"}
-          sub="42-day load"
-          glow={ctl > 8 ? "rgba(25,231,133,0.12)" : "rgba(255,255,255,0.05)"}
-        >
+          sub="42-day load">
           <div style={{ marginLeft: 6 }}>
             <Sparkline values={ctlSparkline} />
           </div>
         </FitnessCard>
 
-        <FitnessCard
-          title="Form (TSB)"
-          icon="◎"
-          metricKey="tsb"
+        <FitnessCard title="FORM (TSB)" metricKey="tsb"
           main={tsb !== null ? (tsb >= 0 ? `+${tsb}` : `${tsb}`) : "—"}
-          sub={tsbLabel(tsb)}
-          glow={tsb !== null ? `${tsbColor}25` : "rgba(255,255,255,0.05)"}
-        >
+          sub={tsbLabel(tsb)}>
           <span style={{ fontSize: 11, color: tsbColor, marginLeft: 6, fontWeight: 600 }}>
             {tsbLabel(tsb)}
           </span>
         </FitnessCard>
 
-        <FitnessCard
-          title="Pace @ 140bpm"
-          icon="♡"
-          metricKey="paceAtHr"
+        <FitnessCard title="PACE @ 140BPM" metricKey="paceAtHr"
           main={paceAtHr ?? "—"}
           sub={paceAtHrDelta !== null
-            ? paceAtHrDelta < 0
-              ? `${Math.abs(paceAtHrDelta)}s/km faster`
-              : paceAtHrDelta > 0
-              ? `${paceAtHrDelta}s/km slower`
-              : "No change"
-            : "vs 4 weeks ago"}
-          glow={paceAtHrDelta !== null && paceAtHrDelta < 0 ? "rgba(25,231,133,0.12)" : "rgba(255,255,255,0.05)"}
-        >
+            ? paceAtHrDelta < 0 ? `${Math.abs(paceAtHrDelta)}s/km faster`
+            : paceAtHrDelta > 0 ? `${paceAtHrDelta}s/km slower`
+            : "No change"
+            : "vs 4 weeks ago"}>
           <TrendArrow delta={paceAtHrDelta} invert={true} />
         </FitnessCard>
-
       </div>
 
       {analysis && (
@@ -232,50 +177,35 @@ const FC = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: 10,
+    gap: 8,
     marginBottom: 10,
   },
   card: {
-    background: "#0D0D0B",
-    border: "1px solid #1A1A18",
-    borderRadius: 14,
+    background: "var(--ground-1)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--r-s)",
     padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
     gap: 4,
-    transition: "box-shadow 0.3s ease",
-    overflow: "visible",
   },
-  cardTop: { display: "flex", alignItems: "center", gap: 5 },
-  icon: { fontSize: 10, color: "#5A5A55" },
-  label: { fontSize: 10, color: "#6A6A63", letterSpacing: 0.5, fontWeight: 500 },
-  mainRow: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 },
-  main: { fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: -0.5, lineHeight: 1 },
-  sub: { fontSize: 11, color: "#6A6A63", marginTop: 2 },
-  infoWrap: { position: "relative", display: "inline-block" },
-  infoBtn: {
-    width: 16, height: 16, borderRadius: "50%",
-    border: "1px solid #2A2A28", background: "#111110", color: "#6A6A63",
-    fontSize: 9, fontWeight: 700, cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    padding: 0, lineHeight: 1, transition: "border-color 0.15s, color 0.15s",
-  },
-  backdrop: { position: "fixed", inset: 0, zIndex: 98 },
-  tooltip: {
-    position: "absolute", top: 22, right: 0, width: 220,
-    background: "#141412", border: "1px solid #2A2A28", borderRadius: 12,
-    padding: "14px 14px 12px", zIndex: 99, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-  },
-  tooltipTitle: { fontSize: 12, fontWeight: 700, color: YELLOW, marginBottom: 8, letterSpacing: 0.3 },
-  tooltipBody: { fontSize: 12, color: "#A8A8A0", lineHeight: 1.6, margin: 0 },
-  tooltipClose: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: "#5A5A55", cursor: "pointer", fontSize: 11, padding: 2 },
+  cardTop: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+  label: { fontFamily: "var(--mono)", fontSize: 9.5, color: "var(--ink-low)", letterSpacing: ".14em", textTransform: "uppercase" },
+  mainRow: { display: "flex", alignItems: "center", gap: 4, marginTop: 4 },
+  main: { fontFamily: "var(--disp)", fontSize: 28, fontWeight: 700, color: "var(--ink-hi)", letterSpacing: -.5, lineHeight: 1 },
+  sub: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", marginTop: 2 },
+  details: { marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" },
+  summary: { display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", listStyle: "none", minHeight: 28 },
+  summaryLabel: { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: ".16em", color: "var(--ink-low)", textTransform: "uppercase" },
+  chev: { color: "var(--ink-low)", flexShrink: 0 },
+  explainerBody: { fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-low)", lineHeight: 1.55, marginTop: 6 },
   analysisBox: {
-    background: "#0D0D0B",
-    border: "1px solid #1A1A18",
-    borderRadius: 14,
+    background: "var(--ground-1)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--r-s)",
     padding: "12px 14px",
-    marginBottom: 14,
+    marginBottom: 10,
   },
-  analysisLabel: { fontSize: 9, color: "#6A6A63", letterSpacing: 1.2, fontWeight: 600 },
-  analysisText: { fontSize: 13, color: "#C2C2BA", lineHeight: 1.5, margin: "6px 0 0" },
+  analysisLabel: { fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: ".16em", color: "var(--accent)", textTransform: "uppercase" },
+  analysisText: { fontSize: 13, color: "var(--ink-mid)", lineHeight: 1.55, margin: "6px 0 0" },
 };
