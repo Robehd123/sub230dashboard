@@ -293,8 +293,8 @@ export default function Dashboard() {
             ))}
 
             {(() => {
-              const tomorrowKeys = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
-              const tmKey = tomorrowKeys[todayNum === 6 ? 0 : todayNum];
+const dayKeys = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+              const tmKey = dayKeys[(todayNum + 1) % 7];
               const tmSession = plan?.sessions?.[tmKey];
               if (!tmSession) return null;
               const tmLabel = tmKey.charAt(0).toUpperCase() + tmKey.slice(1);
