@@ -401,14 +401,14 @@ export default function Dashboard() {
             <div style={S.sectionLabel}>HEALTH · TODAY</div>
             <HealthCards
               metrics={{
-                resting_hr:        readiness?.restingHr,
-                sleep_score:       readiness?.sleepScore,
+                resting_hr:         readiness?.restingHr,
+                sleep_score:        readiness?.sleepScore,
                 sleep_duration_min: readiness?.sleepDuration,
-                steps:             readiness?.steps,
-                respiratory_rate:  readiness?.respiratoryRate,
-                weight_kg:         liveData?.body?.weight_kg || null,
+                steps:              readiness?.steps,
+                respiratory_rate:   readiness?.respiratoryRate,
               }}
               hrBaseline={readiness?.hrBaseline}
+              body={liveData?.body}
             />
 
             <BodyCard body={liveData?.body} />

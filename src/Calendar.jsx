@@ -58,7 +58,7 @@ function ActivityCircle({ types, size = 12 }) {
   return <>{slices}</>;
 }
 
-export function ActivityCalendar({ calendarData, streak, weekMinutes }) {
+export function ActivityCalendar({ calendarData, streak, activeWeeks, weekMinutes }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -102,8 +102,12 @@ export function ActivityCalendar({ calendarData, streak, weekMinutes }) {
       {/* streak and minutes */}
       <div style={CS.streakRow}>
         <div style={CS.streakBlock}>
-          <span style={CS.streakNum}>{streak ?? 0}</span>
-          <span style={CS.streakLabel}>week streak</span>
+          <span style={CS.streakNum}>
+            {activeWeeks ? activeWeeks.active : (streak ?? 0)}
+          </span>
+          <span style={CS.streakLabel}>
+            {activeWeeks ? `of ${activeWeeks.of} weeks active` : "week streak"}
+          </span>
         </div>
         <div style={CS.streakDivider} />
         <div style={CS.streakBlock}>
@@ -185,10 +189,10 @@ const CS = {
     height: 24,
     background: "#1E1E1C",
   },
-  streakNum: {
+streakNum: {
     fontSize: 32,
     fontWeight: 800,
-    color: "#FFFF00",
+    color: "var(--accent)",
     letterSpacing: -1,
   },
   streakLabel: {

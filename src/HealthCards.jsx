@@ -54,10 +54,7 @@ function ArcGauge({ pct, colour, size = 80, label }) {
 function MiniCard({ title, icon, gauge, bigNum, bigUnit, sub, status, pending }) {
   const glow = statusGlow(status);
   return (
-    <div style={{
-      ...HC.card,
-      boxShadow: pending ? "none" : `0 0 18px 4px ${glow}, inset 0 0 0 1px rgba(255,255,255,0.04)`,
-    }}>
+    <div style={HC.card}>
       <div style={HC.cardTop}>
         <span style={HC.icon}>{icon}</span>
         <span style={HC.cardTitle}>{title}</span>
@@ -80,7 +77,7 @@ function MiniCard({ title, icon, gauge, bigNum, bigUnit, sub, status, pending })
   );
 }
 
-export function HealthCards({ metrics, hrBaseline }) {
+export function HealthCards({ metrics, hrBaseline, body }) {
   const pending = !metrics || (!metrics.resting_hr && !metrics.steps);
 
   // resting HR
@@ -106,7 +103,7 @@ export function HealthCards({ metrics, hrBaseline }) {
   const stepColour = stepStatus === "good" ? "#19E785" : stepStatus === "neutral" ? "#FFFF00" : "#EC9649";
 
   // body weight from most recent InBody scan (passed via metrics or body prop)
-  const weight = metrics?.weight_kg;
+const weight = body?.weight_kg || metrics?.weight_kg || null;
   const weightStatus = "neutral"; // weight is informational, not good/bad
   const weightPct = weight ? Math.min(1, Math.max(0, 1 - (weight - 55) / 30)) : 0;
   const weightColour = "#59CEF1";
