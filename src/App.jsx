@@ -310,12 +310,31 @@ const headers = { "X-Dashboard-Token": token };
           <div style={S.view}>
             <div style={S.gantry}>
               {[
-                { label: "LOAD", word: statusWord, colour: statusColour, detail: statusDetail },
+                {
+                  label: "LOAD",
+                  word: liveData?.fitness?.tsb != null
+                    ? liveData.fitness.tsb >= 5 ? "Fresh"
+                    : liveData.fitness.tsb >= -5 ? "Neutral"
+                    : liveData.fitness.tsb >= -15 ? "Tired"
+                    : "Fatigued"
+                    : "Pending",
+                  colour: liveData?.fitness?.tsb != null
+                    ? liveData.fitness.tsb >= 5 ? "var(--pos)"
+                    : liveData.fitness.tsb >= -5 ? "var(--accent)"
+                    : liveData.fitness.tsb >= -15 ? "var(--warn)"
+                    : "var(--alert)"
+                    : "var(--ink-low)",
+                  detail: liveData?.fitness?.tsb != null ? `TSB ${liveData.fitness.tsb >= 0 ? "+" : ""}${liveData.fitness.tsb}` : "No data",
+                },
                 {
                   label: "RECOVERY",
-                  word: readiness?.sleepDuration ? `${Math.round(readiness.sleepDuration / 60 * 10) / 10}h` : "Pending",
+                  word: readiness?.sleepDuration
+                    ? `${Math.round(readiness.sleepDuration / 60 * 10) / 10}h`
+                    : "Pending",
                   colour: readiness?.sleepDuration
-                    ? readiness.sleepDuration >= 420 ? "var(--pos)" : readiness.sleepDuration >= 330 ? "var(--warn)" : "var(--alert)"
+                    ? readiness.sleepDuration >= 420 ? "var(--pos)"
+                    : readiness.sleepDuration >= 330 ? "var(--warn)"
+                    : "var(--alert)"
                     : "var(--ink-low)",
                   detail: readiness?.sleepDuration ? "sleep last night" : "awaiting health data",
                 },
