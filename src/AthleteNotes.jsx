@@ -1,22 +1,38 @@
-// AthleteNotes.jsx — running journal with collapsible entries
-
 import React, { useState, useEffect } from "react";
+import { BACKEND, JOURNAL_PREVIEW_LEN } from "./config.js";
 
-const YELLOW = "#FFFF00";
-const BACKEND = "https://sub230-backend.sub230.workers.dev";
-
-function JournalEntry({ entry }) {
+function JournalEntry({ entry, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
   const date = entry.recorded_at
     ? new Date(entry.recorded_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
     : "";
-  const preview = entry.notes.length > 60 ? entry.notes.slice(0, 60).trimEnd() + "…" : entry.notes;
+  const preview = entry.notes.length > JOURNAL_PREVIEW_LEN
+    ? entry.notes.slice(0, JOURNAL_PREVIEW_LEN).trimEnd() + "…"
+    : entry.notes;
 
   return (
-    <div style={AN.entry} onClick={() => setOpen(o => !o)}>
-      <div style={AN.entryHead}>
+    <div style={AN.entry}>
+      <div style={AN.entryHead} onClick={() => setOpen(o => !o)}>
         <span style={AN.entryDate}>{date}</span>
-        <span style={AN.entryChevron}>{open ? "▴" : "▾"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {confirming ? (
+            <>
+              <button style={AN.confirmBtn} onClick={e => { e.stopPropagation(); onDelete(entry.id); setConfirming(false); }}>
+                Confirm
+              </button>
+              <button style={AN.cancelBtn} onClick={e => { e.stopPropagation(); setConfirming(false); }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button style={AN.deleteBtn} onClick={e => { e.stopPropagation(); setConfirming(true); }}>
+              Delete
+            </button>
+          )}
+          <span style={AN.entryChevron}>{open ? "▴" : "▾"}</span>
+        </div>
       </div>
       <p style={open ? AN.entryTextOpen : AN.entryTextPreview}>
         {open ? entry.notes : preview}
@@ -26,13 +42,12 @@ function JournalEntry({ entry }) {
 }
 
 export function AthleteNotes({ latestNote }) {
-  const [entries, setEntries]     = useState(latestNote ? [latestNote] : []);
-  const [loaded, setLoaded]       = useState(false);
-  const [adding, setAdding]       = useState(false);
-  const [text, setText]           = useState("");
+  const [entries, setEntries]       = useState(latestNote ? [latestNote] : []);
+  const [loaded, setLoaded]         = useState(false);
+  const [adding, setAdding]         = useState(false);
+  const [text, setText]             = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // load full journal on first open
   useEffect(() => {
     if (!loaded) {
       fetch(`${BACKEND}/api/notes`)
@@ -59,6 +74,13 @@ export function AthleteNotes({ latestNote }) {
     setSubmitting(false);
   }
 
+  async function deleteEntry(id) {
+    try {
+      await fetch(`${BACKEND}/api/notes/${id}`, { method: "DELETE" });
+      setEntries(prev => prev.filter(e => e.id !== id));
+    } catch {}
+  }
+
   const lastDate = entries[0]?.recorded_at
     ? new Date(entries[0].recorded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : null;
@@ -70,10 +92,7 @@ export function AthleteNotes({ latestNote }) {
           <span style={AN.label}>RUNNING JOURNAL</span>
           {lastDate && <span style={AN.lastUpdated}> · {lastDate}</span>}
         </div>
-        <button
-          style={AN.addBtn}
-          onClick={() => setAdding(o => !o)}
-        >
+        <button style={AN.addBtn} onClick={() => setAdding(o => !o)}>
           {adding ? "Cancel" : "+ New entry"}
         </button>
       </div>
@@ -105,7 +124,7 @@ export function AthleteNotes({ latestNote }) {
       )}
 
       {entries.map((e, i) => (
-        <JournalEntry key={e.id || i} entry={e} />
+        <JournalEntry key={e.id || i} entry={e} onDelete={deleteEntry} />
       ))}
     </div>
   );
@@ -113,11 +132,11 @@ export function AthleteNotes({ latestNote }) {
 
 const AN = {
   wrap: {
-    background: "#0D0D0B",
-    border: "1px solid #1A1A18",
-    borderRadius: 16,
+    background: "var(--ground-1)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--r)",
     padding: "14px 18px",
-    marginBottom: 14,
+    marginBottom: 10,
   },
   header: {
     display: "flex",
@@ -126,92 +145,125 @@ const AN = {
     marginBottom: 10,
   },
   label: {
+    fontFamily: "var(--mono)",
     fontSize: 10,
-    color: "#6A6A63",
-    letterSpacing: 1.4,
-    fontWeight: 500,
+    color: "var(--ink-low)",
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
   },
   lastUpdated: {
+    fontFamily: "var(--mono)",
     fontSize: 10,
-    color: "#3A3A38",
+    color: "var(--ink-low)",
   },
   addBtn: {
     background: "none",
-    border: "1px solid #2A2A28",
+    border: "1px solid var(--line)",
     borderRadius: 8,
-    color: YELLOW,
+    color: "var(--accent)",
+    fontFamily: "var(--mono)",
     fontSize: 11,
     fontWeight: 600,
     padding: "4px 10px",
     cursor: "pointer",
-    letterSpacing: 0.2,
+    letterSpacing: "0.1em",
   },
-  inputBlock: {
-    marginBottom: 12,
-  },
+  inputBlock: { marginBottom: 12 },
   textarea: {
     width: "100%",
-    background: "#111110",
-    border: "1px solid #2A2A28",
-    borderRadius: 10,
-    color: "#C2C2BA",
+    background: "var(--ground-2)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--r-s)",
+    color: "var(--ink-hi)",
     fontSize: 13,
     lineHeight: 1.5,
     padding: "10px 12px",
     resize: "none",
     outline: "none",
-    fontFamily: "system-ui, -apple-system, sans-serif",
+    fontFamily: "var(--body)",
     marginBottom: 8,
     boxSizing: "border-box",
   },
   saveBtn: {
     width: "100%",
-    background: YELLOW,
-    color: "#070707",
+    background: "var(--accent)",
+    color: "var(--ground-0)",
     border: "none",
-    borderRadius: 10,
+    borderRadius: "var(--r-s)",
     padding: "10px 0",
     fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
-    transition: "opacity 0.15s",
   },
   placeholder: {
-    fontSize: 12,
-    color: "#3A3A38",
-    lineHeight: 1.5,
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    color: "var(--ink-low)",
+    lineHeight: 1.55,
     margin: 0,
   },
   entry: {
-    borderTop: "1px solid #161614",
+    borderTop: "1px solid var(--line)",
     paddingTop: 10,
     paddingBottom: 6,
-    cursor: "pointer",
   },
   entryHead: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 4,
+    cursor: "pointer",
   },
   entryDate: {
+    fontFamily: "var(--mono)",
     fontSize: 11,
-    color: "#5A5A55",
+    color: "var(--ink-low)",
     fontWeight: 500,
   },
   entryChevron: {
     fontSize: 10,
-    color: "#3A3A38",
+    color: "var(--ink-low)",
+  },
+  deleteBtn: {
+    background: "none",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    color: "var(--alert)",
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    padding: "2px 8px",
+    cursor: "pointer",
+    letterSpacing: "0.08em",
+  },
+  confirmBtn: {
+    background: "var(--alert)",
+    border: "none",
+    borderRadius: 6,
+    color: "var(--ink-hi)",
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    padding: "2px 8px",
+    cursor: "pointer",
+  },
+  cancelBtn: {
+    background: "none",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    color: "var(--ink-low)",
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    padding: "2px 8px",
+    cursor: "pointer",
   },
   entryTextPreview: {
     fontSize: 13,
-    color: "#6A6A63",
+    color: "var(--ink-low)",
     margin: 0,
     lineHeight: 1.45,
   },
   entryTextOpen: {
     fontSize: 13,
-    color: "#C2C2BA",
+    color: "var(--ink-mid)",
     margin: 0,
     lineHeight: 1.55,
   },

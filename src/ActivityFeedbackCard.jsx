@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 
 const YELLOW = "#FFFF00";
-const BACKEND = "https://sub230-backend.sub230.workers.dev";
+import { BACKEND } from "./config.js";
 
 const RATINGS = [
   { v: 1, label: "Terrible", color: "#F87171" },
@@ -25,7 +25,16 @@ export function ActivityFeedbackCard({ activity, typeColour, fmtDist, fmtTime, f
     f.activity_name === activity.name
   );
 
-  const hasFeedback = !!existing || justSubmitted;
+  const [deleted, setDeleted] = useState(false);
+
+  async function deleteFeedback() {
+    if (!existing?.id) return;
+    try {
+      await fetch(`${BACKEND}/api/feedback/${existing.id}`, { method: "DELETE" });
+      setDeleted(true);
+      setJustSubmitted(false);
+    } catch {}
+  }
 
   async function submit() {
     if (!rating && !notes.trim()) return;
@@ -73,15 +82,22 @@ export function ActivityFeedbackCard({ activity, typeColour, fmtDist, fmtTime, f
 
       {open && (
         <div style={AC.expanded}>
-          {hasFeedback ? (
+          {hasFeedback && !deleted ? (
             <div style={AC.savedBlock}>
-              {existing?.rating && (
-                <span style={{ ...AC.savedRating, color: RATINGS.find(r => r.v === existing.rating)?.color || "#19E785" }}>
-                  {RATINGS.find(r => r.v === existing.rating)?.label}
-                </span>
-              )}
-              {existing?.notes && <p style={AC.savedNotes}>{existing.notes}</p>}
-              {!existing && <span style={AC.savedNotes}>Saved.</span>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  {existing?.rating && (
+                    <span style={{ ...AC.savedRating, color: RATINGS.find(r => r.v === existing.rating)?.color || "#19E785" }}>
+                      {RATINGS.find(r => r.v === existing.rating)?.label}
+                    </span>
+                  )}
+                  {existing?.notes && <p style={AC.savedNotes}>{existing.notes}</p>}
+                  {!existing && <span style={AC.savedNotes}>Saved.</span>}
+                </div>
+                {existing?.id && (
+                  <button style={AC.deleteBtn} onClick={deleteFeedback}>Delete</button>
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -163,5 +179,17 @@ const AC = {
   submitBtn: {
     width: "100%", background: YELLOW, color: "#070707", border: "none",
     borderRadius: 9, padding: "8px 0", fontSize: 12, fontWeight: 700, cursor: "pointer",
+ },
+  deleteBtn: {
+    background: "none",
+    border: "1px solid #2A2A28",
+    borderRadius: 6,
+    color: "#E86A5E",
+    fontSize: 10,
+    fontFamily: "system-ui",
+    padding: "2px 8px",
+    cursor: "pointer",
+    flexShrink: 0,
+    marginLeft: 8,
   },
 };
