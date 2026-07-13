@@ -320,10 +320,10 @@ const headers = { "X-Dashboard-Token": token };
                   detail: readiness?.sleepDuration ? "sleep last night" : "awaiting health data",
                 },
                 {
-                  label: "HAMSTRING",
-                  word: liveData?.status?.word === "Caution" && liveData?.status?.detail?.includes("Injury") ? "Caution" : "Ready",
-                  colour: liveData?.status?.word === "Caution" && liveData?.status?.detail?.includes("Injury") ? "var(--warn)" : "var(--pos)",
-                  detail: liveData?.status?.detail?.includes("Injury") ? "flagged in journal" : "no flags",
+                  label: "STATUS",
+                  word: statusWord,
+                  colour: statusColour,
+                  detail: statusDetail,
                 },
               ].map(seg => (
                 <div key={seg.label} style={{ ...S.seg, borderTopColor: seg.colour, background: `linear-gradient(180deg, ${seg.colour}12 0%, var(--ground-1) 60%)` }}>
