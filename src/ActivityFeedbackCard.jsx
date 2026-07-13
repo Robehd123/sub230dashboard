@@ -14,18 +14,19 @@ const RATINGS = [
 ];
 
 export function ActivityFeedbackCard({ activity, typeColour, fmtDist, fmtTime, fmtPace, recentFeedback }) {
-  const [open, setOpen] = useState(false);
+const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   const existing = recentFeedback?.find(f =>
     f.activity_date === activity.start_date.split("T")[0] &&
     f.activity_name === activity.name
   );
 
-  const [deleted, setDeleted] = useState(false);
+const hasFeedback = !!existing || justSubmitted;
 
   async function deleteFeedback() {
     if (!existing?.id) return;
