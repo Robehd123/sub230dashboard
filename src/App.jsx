@@ -4,7 +4,7 @@ import { HealthCards } from "./HealthCards.jsx";
 import { FitnessCards } from "./FitnessCards.jsx";
 import { ActivityFeedbackCard } from "./ActivityFeedbackCard.jsx";
 import { AthleteNotes } from "./AthleteNotes.jsx";
-import { BACKEND, ACTIVITY_COLOURS, WEEKLY_TARGET_KM } from "./config.js";
+import { BACKEND, ACTIVITY_COLOURS, WEEKLY_TARGET_KM, TOKEN_KEY } from "./config.js";
 
 function fmtType(t) {
   return { easy: "Easy", long: "Long", threshold: "Threshold", intervals: "Intervals", strength: "Strength", swim: "Swim" }[t] || t;
@@ -81,6 +81,22 @@ const TABS = [
   { id: "progress", label: "Progress" },
 ];
 
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function getStoredToken() {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+function storeToken(token) {
+  try { localStorage.setItem(TOKEN_KEY, token); } catch {}
+}
+
 export default function Dashboard() {
   const [liveData, setLiveData]         = useState(null);
   const [calendarData, setCalendarData] = useState(null);
@@ -89,6 +105,74 @@ export default function Dashboard() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [activeTab, setActiveTab]       = useState("today");
+  const [token, setToken]               = useState(getStoredToken);
+  const [pwInput, setPwInput]           = useState("");
+  const [pwError, setPwError]           = useState(false);
+  const [pwChecking, setPwChecking]     = useState(false);
+
+async function submitPassword() {
+    if (!pwInput.trim()) return;
+    setPwChecking(true);
+    const hashed = await hashPassword(pwInput.trim());
+    const res = await fetch(`${BACKEND}/api/dashboard`, {
+      headers: { "X-Dashboard-Token": hashed },
+    }).catch(() => null);
+    if (res?.ok) {
+      storeToken(hashed);
+      setToken(hashed);
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+    setPwChecking(false);
+    setPwInput("");
+  }
+
+  // password gate
+  if (!token) return (
+    <div style={S.loadWrap}>
+      <div style={{ textAlign: "center", padding: 24, maxWidth: 320, width: "100%" }}>
+        <div style={{ fontFamily: "var(--disp)", fontWeight: 800, fontSize: 32, color: "var(--accent)", marginBottom: 4, letterSpacing: 2 }}>
+          SUB2:30
+        </div>
+        <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-low)", letterSpacing: "0.2em", marginBottom: 32 }}>
+          TRAINING DASHBOARD
+        </div>
+        <input
+          type="password"
+          placeholder="Password"
+          value={pwInput}
+          onChange={e => { setPwInput(e.target.value); setPwError(false); }}
+          onKeyDown={e => e.key === "Enter" && submitPassword()}
+          style={{
+            width: "100%", background: "var(--ground-2)", border: `1px solid ${pwError ? "var(--alert)" : "var(--line)"}`,
+            borderRadius: "var(--r-s)", color: "var(--ink-hi)", fontSize: 16,
+            padding: "12px 14px", outline: "none", fontFamily: "var(--body)",
+            marginBottom: 8, boxSizing: "border-box", textAlign: "center",
+          }}
+          autoFocus
+        />
+        {pwError && (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--alert)", marginBottom: 8, letterSpacing: "0.1em" }}>
+            Incorrect password
+          </div>
+        )}
+        <button
+          onClick={submitPassword}
+          disabled={pwChecking || !pwInput.trim()}
+          style={{
+            width: "100%", background: "var(--accent)", color: "var(--ground-0)",
+            border: "none", borderRadius: "var(--r-s)", padding: "12px",
+            fontSize: 14, fontWeight: 700, cursor: "pointer",
+            fontFamily: "var(--mono)", letterSpacing: "0.1em",
+            opacity: pwChecking || !pwInput.trim() ? 0.5 : 1,
+          }}
+        >
+          {pwChecking ? "CHECKING..." : "ENTER"}
+        </button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     const fromHash = () => {
@@ -109,12 +193,13 @@ export default function Dashboard() {
   useEffect(() => {
     const todayNum = new Date().getDay();
     const isWeekend = todayNum === 0 || todayNum === 6;
+const headers = { "X-Dashboard-Token": token };
     Promise.all([
-      fetch(`${BACKEND}/api/dashboard`).then(r => r.json()),
-      fetch(`${BACKEND}/api/plan`).then(r => r.json()),
-      fetch(`${BACKEND}/api/calendar?days=84`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BACKEND}/api/dashboard`, { headers }).then(r => r.json()),
+      fetch(`${BACKEND}/api/plan`, { headers }).then(r => r.json()),
+      fetch(`${BACKEND}/api/calendar?days=84`, { headers }).then(r => r.json()).catch(() => ({})),
       isWeekend
-        ? fetch(`${BACKEND}/api/plan?next=true`).then(r => r.json()).catch(() => null)
+        ? fetch(`${BACKEND}/api/plan?next=true`, { headers }).then(r => r.json()).catch(() => null)
         : Promise.resolve(null),
     ]).then(([dash, planData, cal, nextPlan]) => {
       setLiveData(dash);

@@ -50,7 +50,7 @@ export function AthleteNotes({ latestNote }) {
 
   useEffect(() => {
     if (!loaded) {
-      fetch(`${BACKEND}/api/notes`)
+      fetch(`${BACKEND}/api/notes`, { headers: { "X-Dashboard-Token": window.__dashToken || "" } })
         .then(r => r.json())
         .then(data => { setEntries(Array.isArray(data) ? data : []); setLoaded(true); })
         .catch(() => setLoaded(true));
@@ -63,7 +63,7 @@ export function AthleteNotes({ latestNote }) {
     try {
       await fetch(`${BACKEND}/api/notes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Dashboard-Token": window.__dashToken || "" },
         body: JSON.stringify({ notes: text.trim() }),
       });
       const updated = await fetch(`${BACKEND}/api/notes`).then(r => r.json());
@@ -76,7 +76,7 @@ export function AthleteNotes({ latestNote }) {
 
   async function deleteEntry(id) {
     try {
-      await fetch(`${BACKEND}/api/notes/${id}`, { method: "DELETE" });
+      await fetch(`${BACKEND}/api/notes/${id}`, { method: "DELETE", headers: { "X-Dashboard-Token": window.__dashToken || "" } });
       setEntries(prev => prev.filter(e => e.id !== id));
     } catch {}
   }

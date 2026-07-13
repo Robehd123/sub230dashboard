@@ -31,7 +31,7 @@ const hasFeedback = !!existing || justSubmitted;
   async function deleteFeedback() {
     if (!existing?.id) return;
     try {
-      await fetch(`${BACKEND}/api/feedback/${existing.id}`, { method: "DELETE" });
+      await fetch(`${BACKEND}/api/feedback/${existing.id}`, { method: "DELETE", headers: { "X-Dashboard-Token": window.__dashToken || "" } });
       setDeleted(true);
       setJustSubmitted(false);
     } catch {}
@@ -43,7 +43,7 @@ const hasFeedback = !!existing || justSubmitted;
     try {
       await fetch(`${BACKEND}/api/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Dashboard-Token": window.__dashToken || "" },
         body: JSON.stringify({
           strava_id: activity.strava_id,
           activity_name: activity.name,

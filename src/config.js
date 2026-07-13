@@ -28,3 +28,5 @@ export const STATUS_COLOURS = {
   Hold:    "#E86A5E",
   Pending: "#7A745F",
 };
+
+export const TOKEN_KEY = "sub230_token";
